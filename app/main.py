@@ -1,10 +1,13 @@
 from fastapi import FastAPI, HTTPException
-from app.db import init_db, db
-from app.models import ProjectCreate, ApprovalDecision, GitHubImport
-from app.orchestrator import Orchestrator
-from app.integrations.github import get_issue
 
-app = FastAPI(title="Agent Company", version="0.2.0")
+from app.agents.coding import CodingAgent
+from app.core.settings import settings
+from app.db import init_db, db
+from app.integrations.github import get_issue
+from app.models import ApprovalDecision, AutonomousCodeRequest, GitHubImport, ProjectCreate
+from app.orchestrator import Orchestrator
+
+app = FastAPI(title="Agent Company", version="0.3.0")
 orch = Orchestrator()
 
 
@@ -68,3 +71,26 @@ def import_github_issue(body: GitHubImport):
     except Exception as e:
         raise HTTPException(400, str(e))
     return create_project(ProjectCreate(name=f"GitHub #{body.issue_number}: {issue['title']}", brief=issue.get("body") or issue["title"]))
+
+
+@app.post("/github/code")
+def autonomously_code_issue(body: AutonomousCodeRequest):
+    if not settings.github_owner or not settings.github_repo:
+        raise HTTPException(400, "GITHUB_OWNER and GITHUB_REPO must be configured")
+    try:
+        issue = get_issue(body.issue_number)
+        title = issue["title"]
+        task = (issue.get("body") or title).strip()
+        branch = body.branch or f"agent/issue-{body.issue_number}"
+        agent = CodingAgent(settings.github_owner, settings.github_repo)
+        result = agent.run_autonomous(
+            task_id=f"issue-{body.issue_number}",
+            branch=branch,
+            title=f"Fix #{body.issue_number}: {title}",
+            description=f"Autonomous implementation for GitHub issue #{body.issue_number}.\n\nCloses #{body.issue_number} after human review.",
+            task=task,
+            max_attempts=body.max_attempts,
+        )
+        return result.__dict__
+    except Exception as e:
+        raise HTTPException(400, str(e))
