@@ -14,6 +14,8 @@ class Settings:
     github_token: str = os.getenv("GITHUB_TOKEN", "")
     github_owner: str = os.getenv("GITHUB_OWNER", "")
     github_repo: str = os.getenv("GITHUB_REPO", "")
+    github_webhook_secret: str = os.getenv("GITHUB_WEBHOOK_SECRET", "")
+    bootstrap_token: str = os.getenv("BOOTSTRAP_TOKEN", "")
     workspace_root: str = os.getenv("WORKSPACE_ROOT", "/tmp/agent-company-workspaces")
     test_command: str = os.getenv("TEST_COMMAND", "python -m pytest -q")
     command_timeout_seconds: int = int(os.getenv("COMMAND_TIMEOUT_SECONDS", "180"))

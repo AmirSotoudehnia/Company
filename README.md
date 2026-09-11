@@ -1,171 +1,154 @@
 # Agent Company
 
-An agentic software-delivery platform that turns a project brief or GitHub issue into a controlled engineering workflow.
+Agent Company is a controlled agentic software-delivery platform. A GitHub issue can be turned into a bounded AI patch, tested inside a hardened sandbox, pushed to a task branch, and opened as a draft pull request for human review.
 
-## Current stage
+## Implemented platform
 
-The repository now contains five layers:
-
-1. **Workflow MVP** — Project Manager → Developer → QA/Bug Fix → Delivery → human approval.
-2. **GitHub/Coding foundation** — disposable git workspaces, branch creation, commit/push support, draft pull-request creation, and GitHub Actions CI.
-3. **Model-backed Patch Agent** — bounded repository context, constrained file edits, test-feedback retries, branch push, and draft PR creation.
-4. **Docker Sandbox** — test execution in an isolated container with no network by default, dropped Linux capabilities, PID/CPU/memory limits, read-only container filesystem, and no forwarded GitHub/LLM secrets.
-5. **GitHub App authentication** — short-lived per-installation tokens are preferred over long-lived personal repository tokens.
-
-The model is deliberately separated from the execution worker. The model can only propose complete text-file replacements inside a bounded repository context; the worker remains the only component allowed to execute tests and git commands.
-
-## Architecture
+### Autonomous delivery pipeline
 
 ```text
-GitHub issue
-    |
-    v
-Issue reader
-    |
-    v
-Patch Agent (LLM)
-    |
-constrained edit plan
-    |
-    v
-Disposable git workspace
-    |
- apply edits
-    |
-    v
-Docker Sandbox
-(no network / no secrets / resource limits)
-    |
- run tests
-    |\
-    | fail -> feed test output back to Patch Agent -> retry (bounded)
-    |
-   pass
-    |
- commit + push task branch
-    |
- draft pull request
-    |
- human review / approval
+GitHub Issue / Tenant API
+        |
+        v
+Durable Job Queue
+        |
+        v
+Coding / Patch Agent
+        |
+        v
+Disposable Git Workspace
+        |
+        v
+Hardened Docker Sandbox
+        |
+   tests + fix loop
+        |
+        v
+Task Branch -> Draft PR
+        |
+        v
+Human Review / Merge
 ```
 
-## Run locally
+### Multi-tenant control plane
+
+The platform now includes tenant isolation, one-time tenant API keys, GitHub App installation mapping, per-tenant repositories, durable jobs with leases/retries, audit logs, repository execution policies, GitHub webhook verification/deduplication, and a standalone worker process.
+
+A repository belongs to exactly one tenant + GitHub installation mapping. Every queue and audit query is tenant-scoped. Installation tokens are short-lived and generated from the GitHub App private key; they are not stored in the database.
+
+## Security boundaries
+
+- No autonomous direct push to `main`.
+- Draft PR only after configured tests pass.
+- Human review remains required for merge/production.
+- Docker sandbox defaults to no network, dropped Linux capabilities, `no-new-privileges`, read-only container root, PID/CPU/memory limits, and no GitHub/LLM secrets.
+- `.env`, `.git`, path traversal and out-of-repository model writes are blocked.
+- Autonomous retries and patch size/file count are bounded.
+- GitHub webhooks require HMAC SHA-256 verification and delivery IDs are deduplicated.
+- Tenant API keys are SHA-256 hashed at rest.
+
+For higher-assurance third-party execution, the Docker backend should eventually be replaced or supplemented by an isolated VM/microVM or Kubernetes sandbox pool. The worker should not share privileged host credentials with code under test.
+
+## Local setup
 
 ```bash
 python -m venv .venv
-# Windows: .venv\\Scripts\\activate
+# Windows: .venv\Scripts\activate
 # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env
 uvicorn app.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000` or API docs at `http://127.0.0.1:8000/docs`.
-
-## Build the sandbox image
-
-Docker must be installed on the worker host.
+Build the sandbox image:
 
 ```bash
-docker build -f docker/sandbox.Dockerfile -t agent-company-sandbox:py312 .
+docker build -f sandbox/Dockerfile -t agent-company-sandbox:py312 .
 ```
 
-The autonomous coding path defaults to `EXECUTION_MODE=docker`. Local shell execution is blocked unless `ALLOW_LOCAL_EXECUTION=true` is explicitly set for trusted development.
-
-## Run tests
+Run tests:
 
 ```bash
 python -m pytest -q
 ```
 
-## GitHub authentication
+## GitHub App configuration
 
-### Recommended: GitHub App
-
-Create a GitHub App with repository-scoped permissions and install it only on repositories the platform should manage. Configure:
+Configure a GitHub App with repository permissions appropriate for Issues, Contents and Pull Requests. Store its private key only on the control/worker host.
 
 ```text
-GITHUB_APP_ID=
-GITHUB_APP_INSTALLATION_ID=
-GITHUB_APP_PRIVATE_KEY_PATH=/secure/path/private-key.pem
-GITHUB_OWNER=AmirSotoudehnia
-GITHUB_REPO=Company
+GITHUB_APP_ID=...
+GITHUB_APP_PRIVATE_KEY_PATH=/run/secrets/github-app.pem
+GITHUB_WEBHOOK_SECRET=...
 ```
 
-An inline `GITHUB_APP_PRIVATE_KEY` is also supported, but a mounted secret/file is preferable in production.
+`GITHUB_APP_INSTALLATION_ID` is only a legacy/single-repository fallback. Multi-tenant jobs use the installation ID stored with each tenant repository and request a short-lived token for that installation.
 
-The worker creates a short-lived installation token at runtime and keeps it in memory only. It is used for Git clone/push and REST API operations, then refreshed before expiry.
+## Bootstrap a tenant
 
-### Development fallback
-
-```text
-GITHUB_TOKEN=
-```
-
-A long-lived token should only be used for trusted local development. GitHub App authentication takes precedence when both are configured.
-
-## Sandbox configuration
-
-```text
-EXECUTION_MODE=docker
-ALLOW_LOCAL_EXECUTION=false
-SANDBOX_IMAGE=agent-company-sandbox:py312
-SANDBOX_MEMORY=1g
-SANDBOX_CPUS=1.0
-SANDBOX_PIDS=256
-SANDBOX_NETWORK=none
-SANDBOX_USER=1000:1000
-```
-
-Security controls applied to every sandbox run:
-
-- `--network none` by default.
-- `--cap-drop ALL`.
-- `no-new-privileges`.
-- CPU, memory and PID limits.
-- read-only container root filesystem.
-- temporary writable `/tmp` and home mounts only.
-- repository workspace mounted separately.
-- GitHub token, GitHub App private key and LLM API key are not passed into the container.
-- Docker socket is never mounted into the sandbox.
-
-## LLM configuration
-
-The current client accepts an OpenAI-compatible chat-completions endpoint without coupling the worker to one vendor.
-
-```text
-LLM_MODE=remote
-LLM_BASE_URL=https://your-provider.example/v1
-LLM_API_KEY=...
-LLM_MODEL=...
-```
-
-Keep `LLM_MODE=mock` when you do not want autonomous model calls.
-
-## Trigger autonomous issue coding
-
-With the API running, sandbox image built, and GitHub/LLM variables configured:
+Set a strong `BOOTSTRAP_TOKEN`, then:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/github/code \
-  -H "Content-Type: application/json" \
-  -d '{"issue_number": 12, "max_attempts": 3}'
+curl -X POST http://127.0.0.1:8000/tenants/bootstrap \
+  -H 'Content-Type: application/json' \
+  -H 'X-Bootstrap-Token: YOUR_BOOTSTRAP_TOKEN' \
+  -d '{"name":"Example Customer","slug":"example"}'
 ```
 
-The worker reads the issue, creates an `agent/issue-12` branch, asks the Patch Agent for a constrained edit plan, applies it in a disposable workspace, runs tests inside the Docker sandbox, retries with test feedback when needed, then pushes and opens a draft pull request only after tests pass.
+The response contains a tenant API key exactly once. Use it as `X-Tenant-Key`.
 
-## Safety boundaries
+Register the customer's GitHub App installation:
 
-- No direct push to `main` from the autonomous coding workflow.
-- Changes go to a task branch and a draft pull request.
-- Tests must pass before a PR is opened.
-- Model edits are limited by file count and total byte size.
-- `.env`, `.git`, parent-directory escapes and out-of-repository writes are blocked.
-- Production delivery remains human-approved.
-- Untrusted repository code executes in the Docker sandbox, not the control-plane process.
-- Credentials stay outside repository workspaces and sandbox environments.
+```bash
+curl -X POST http://127.0.0.1:8000/tenant/installations \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Key: TENANT_KEY' \
+  -d '{"installation_id":123456,"account_login":"customer-org","account_type":"Organization"}'
+```
 
-## Next milestone
+Register a repository and its execution policy:
 
-**Multi-tenant GitHub App installations + job queue**
+```bash
+curl -X POST http://127.0.0.1:8000/tenant/repositories \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Key: TENANT_KEY' \
+  -d '{"installation_id":123456,"owner":"customer-org","name":"service","default_branch":"main","auto_code_enabled":true,"max_attempts":3,"test_command":"python -m pytest -q","required_label":"agent:run"}'
+```
 
-The next commercial milestone is to stop relying on one globally configured repository. Each customer/organization will have its own GitHub App installation id, allowed repositories, execution policy, queue, audit trail, and usage budget. The control plane will select the correct installation credential per job and dispatch isolated workers without exposing one customer's credentials or workspace to another.
+## Job queue
+
+Queue manually:
+
+```bash
+curl -X POST http://127.0.0.1:8000/tenant/repositories/1/jobs/code \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Key: TENANT_KEY' \
+  -d '{"issue_number":42}'
+```
+
+Or label a GitHub issue with the repository policy label (default `agent:run`). The signed `issues` webhook enqueues the job once.
+
+Run a worker:
+
+```bash
+python -m app.worker
+```
+
+Workers claim jobs with leases. A crashed worker's lease expires and another worker can retry it. Failed jobs use bounded retries; successful jobs store their result and PR URL.
+
+## Tenant APIs
+
+- `GET /tenant` — current tenant
+- `POST /tenant/installations` — register GitHub App installation
+- `POST /tenant/repositories` — register/update repository policy
+- `GET /tenant/repositories` — list isolated repositories
+- `POST /tenant/repositories/{id}/jobs/code` — queue an issue
+- `GET /tenant/jobs` — job state/history
+- `GET /tenant/audit` — immutable-style audit trail
+- `POST /webhooks/github` — signed GitHub webhook ingress
+
+Legacy single-repository `/github/code` remains available for local development.
+
+## What remains external to the codebase
+
+Before public commercial launch, infrastructure/account work still has to be done outside GitHub code: create the actual GitHub App in GitHub settings, configure its callback/webhook URL and permissions, provision HTTPS hosting/database/backups, configure the model provider and secrets, and establish billing/legal/monitoring. Those require real service accounts, domains and credentials and cannot be safely fabricated by the repository itself.

@@ -21,16 +21,11 @@ class InstallationToken:
     expires_at_epoch: float
 
     def valid(self) -> bool:
-        # Refresh early so a token cannot expire during a long coding run.
         return bool(self.token) and time.time() < self.expires_at_epoch - 120
 
 
 class GitHubAppTokenProvider:
-    """Create short-lived installation tokens for a GitHub App.
-
-    Private keys remain server-side. Installation tokens are cached in memory
-    only and are never persisted to the database or workspace.
-    """
+    """Issue short-lived tokens for any registered GitHub App installation."""
 
     def __init__(self):
         self._lock = Lock()
@@ -40,7 +35,6 @@ class GitHubAppTokenProvider:
     def configured() -> bool:
         return bool(
             os.getenv("GITHUB_APP_ID")
-            and os.getenv("GITHUB_APP_INSTALLATION_ID")
             and (os.getenv("GITHUB_APP_PRIVATE_KEY") or os.getenv("GITHUB_APP_PRIVATE_KEY_PATH"))
         )
 
@@ -62,43 +56,30 @@ class GitHubAppTokenProvider:
         if not app_id:
             raise GitHubAppAuthError("GITHUB_APP_ID is not configured")
         now = int(time.time())
-        payload = {"iat": now - 30, "exp": now + 540, "iss": app_id}
-        return jwt.encode(payload, self._private_key(), algorithm="RS256")
+        return jwt.encode({"iat": now - 30, "exp": now + 540, "iss": app_id}, self._private_key(), algorithm="RS256")
 
     def installation_token(self, installation_id: int | None = None) -> str:
-        installation_id = installation_id or int(os.getenv("GITHUB_APP_INSTALLATION_ID", "0"))
+        if installation_id is None:
+            installation_id = int(os.getenv("GITHUB_APP_INSTALLATION_ID", "0"))
         if installation_id <= 0:
-            raise GitHubAppAuthError("GitHub App installation id is not configured")
-
+            raise GitHubAppAuthError("GitHub App installation id is required")
         with self._lock:
             cached = self._cache.get(installation_id)
             if cached and cached.valid():
                 return cached.token
-
             headers = {
                 "Authorization": f"Bearer {self._app_jwt()}",
                 "Accept": "application/vnd.github+json",
                 "X-GitHub-Api-Version": "2022-11-28",
             }
             with httpx.Client(timeout=20) as client:
-                response = client.post(
-                    f"{API}/app/installations/{installation_id}/access_tokens",
-                    headers=headers,
-                )
+                response = client.post(f"{API}/app/installations/{installation_id}/access_tokens", headers=headers)
             if response.status_code >= 400:
-                raise GitHubAppAuthError(
-                    f"GitHub App installation token request failed: {response.status_code}"
-                )
-            data = response.json()
-            token = data.get("token")
+                raise GitHubAppAuthError(f"GitHub App installation token request failed: {response.status_code}")
+            token = response.json().get("token")
             if not token:
                 raise GitHubAppAuthError("GitHub did not return an installation token")
-
-            # GitHub installation tokens normally last one hour. The response
-            # uses an ISO timestamp; using a conservative 50-minute cache keeps
-            # this module dependency-light and refreshes well before expiry.
-            item = InstallationToken(token=token, expires_at_epoch=time.time() + 3000)
-            self._cache[installation_id] = item
+            self._cache[installation_id] = InstallationToken(token=token, expires_at_epoch=time.time() + 3000)
             return token
 
 
