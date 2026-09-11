@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.agents.patch_agent import PatchAgent
-from app.core.settings import settings
 from app.integrations.github import create_pull_request
+from app.workers.sandbox import run_test_command
 from app.workers.workspace import RepositoryWorkspace, WorkspaceError
 
 
@@ -21,7 +21,7 @@ class CodingRunResult:
 
 
 class CodingAgent:
-    """Model proposes constrained edits; the worker alone executes git/tests."""
+    """Model proposes constrained edits; execution is delegated to the sandbox."""
 
     def __init__(self, owner: str, repo: str, patch_agent: PatchAgent | None = None):
         self.owner = owner
@@ -53,7 +53,7 @@ class CodingAgent:
                 plan = self.patch_agent.propose(task=task, context=context, test_feedback=feedback)
                 changed_files = self.patch_agent.apply(ws.path, plan)
 
-                test = ws.run_shell_command(settings.test_command)
+                test = run_test_command(ws.path, "python -m pytest -q")
                 latest_output = (test.stdout + "\n" + test.stderr).strip()
                 if test.ok:
                     sha = ws.commit_and_push(branch, f"agent: {title}")
@@ -94,7 +94,7 @@ class CodingAgent:
             if not branch_result.ok:
                 raise WorkspaceError(branch_result.stderr or branch_result.stdout)
             apply_change(ws.path)
-            test = ws.run_shell_command(settings.test_command)
+            test = run_test_command(ws.path, "python -m pytest -q")
             output = (test.stdout + "\n" + test.stderr).strip()
             if not test.ok:
                 return CodingRunResult(branch=branch, commit_sha="", tests_passed=False, test_output=output)
