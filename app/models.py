@@ -1,0 +1,48 @@
+from pydantic import BaseModel, Field
+
+
+class ProjectCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    brief: str = Field(min_length=10)
+    risk_level: str = "normal"
+
+
+class ApprovalDecision(BaseModel):
+    approved: bool
+    note: str = ""
+
+
+class GitHubImport(BaseModel):
+    issue_number: int
+
+
+class AutonomousCodeRequest(BaseModel):
+    issue_number: int
+    branch: str | None = None
+    max_attempts: int = Field(default=3, ge=1, le=5)
+
+
+class TenantBootstrap(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    slug: str | None = Field(default=None, max_length=60)
+
+
+class InstallationRegister(BaseModel):
+    installation_id: int = Field(gt=0)
+    account_login: str = Field(min_length=1, max_length=120)
+    account_type: str = Field(default="User", max_length=40)
+
+
+class RepositoryRegister(BaseModel):
+    installation_id: int = Field(gt=0)
+    owner: str = Field(min_length=1, max_length=120)
+    name: str = Field(min_length=1, max_length=120)
+    default_branch: str = Field(default="main", min_length=1, max_length=120)
+    auto_code_enabled: bool = True
+    max_attempts: int = Field(default=3, ge=1, le=5)
+    test_command: str = Field(default="python -m pytest -q", min_length=1, max_length=300)
+    required_label: str = Field(default="agent:run", min_length=1, max_length=80)
+
+
+class CodeJobRequest(BaseModel):
+    issue_number: int = Field(gt=0)
