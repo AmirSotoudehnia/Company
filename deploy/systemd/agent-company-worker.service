@@ -1,0 +1,22 @@
+[Unit]
+Description=Agent Company Autonomous Worker
+After=network-online.target docker.service agent-company-api.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=agentcompany
+Group=agentcompany
+WorkingDirectory=/opt/agent-company
+EnvironmentFile=/etc/agent-company/agent-company.env
+ExecStart=/opt/agent-company/.venv/bin/python -m app.worker
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
