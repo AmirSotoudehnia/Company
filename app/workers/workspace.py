@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from app.core.settings import settings
+from app.integrations.github import access_token, enabled as github_enabled
 
 
 @dataclass
@@ -37,8 +38,8 @@ class RepositoryWorkspace:
         self.path = Path(settings.workspace_root) / f"{repo}-{safe_task}"
 
     def _remote_url(self) -> str:
-        if settings.github_token:
-            token = quote(settings.github_token, safe="")
+        if github_enabled():
+            token = quote(access_token(), safe="")
             return f"https://x-access-token:{token}@github.com/{self.owner}/{self.repo}.git"
         return f"https://github.com/{self.owner}/{self.repo}.git"
 
@@ -46,7 +47,10 @@ class RepositoryWorkspace:
         if self.path.exists():
             shutil.rmtree(self.path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        result = self._run_external(["git", "clone", "--depth", "1", "--branch", base_branch, self._remote_url(), str(self.path)])
+        result = self._run_external([
+            "git", "clone", "--depth", "1", "--branch", base_branch,
+            self._remote_url(), str(self.path),
+        ])
         if not result.ok:
             raise WorkspaceError(result.stderr or result.stdout)
         return self.path
@@ -87,7 +91,14 @@ class RepositoryWorkspace:
 
     def _run_external(self, command: list[str], cwd: Path | None = None, timeout: int | None = None) -> CommandResult:
         try:
-            proc = subprocess.run(command, cwd=str(cwd) if cwd else None, text=True, capture_output=True, timeout=timeout or settings.command_timeout_seconds, env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+            proc = subprocess.run(
+                command,
+                cwd=str(cwd) if cwd else None,
+                text=True,
+                capture_output=True,
+                timeout=timeout or settings.command_timeout_seconds,
+                env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+            )
         except subprocess.TimeoutExpired as exc:
             raise WorkspaceError(f"Command timed out: {' '.join(command)}") from exc
         return CommandResult(" ".join(command), proc.returncode, proc.stdout, proc.stderr)
