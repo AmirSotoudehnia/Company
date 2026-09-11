@@ -11,8 +11,6 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      PYTHONPATH: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,3 +19,16 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: python -m pytest -q
+
+  sandbox-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build sandbox image
+        run: docker build -f docker/sandbox.Dockerfile -t agent-company-sandbox:ci .
+      - name: Verify sandbox runs without network or secrets
+        run: >-
+          docker run --rm --network none --cap-drop ALL
+          --security-opt no-new-privileges:true --read-only
+          --tmpfs /tmp:rw,noexec,nosuid,size=64m
+          agent-company-sandbox:ci python -c "import os; assert 'GITHUB_TOKEN' not in os.environ; print('sandbox-ok')"
