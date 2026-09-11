@@ -1,0 +1,9 @@
+[Unit]
+Description=Backup Agent Company database
+
+[Service]
+Type=oneshot
+User=agentcompany
+Group=agentcompany
+EnvironmentFile=/etc/agent-company/agent-company.env
+ExecStart=/opt/agent-company/deploy/backup.sh

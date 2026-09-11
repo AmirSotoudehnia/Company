@@ -1,0 +1,21 @@
+# Production launch checklist
+
+- [ ] Dedicated Ubuntu server provisioned and OS updates applied.
+- [ ] DNS points to the server.
+- [ ] HTTPS terminates through Caddy.
+- [ ] `/etc/agent-company/agent-company.env` is mode 0600/0640 and contains no placeholder secrets.
+- [ ] GitHub App created with least-privilege repository permissions.
+- [ ] GitHub App private key stored outside the repository.
+- [ ] GitHub webhook secret configured on both sides.
+- [ ] LLM key stored only in server environment/secrets.
+- [ ] Sandbox image built and smoke-tested.
+- [ ] API and worker systemd units active.
+- [ ] `GET /health` returns 200 through HTTPS.
+- [ ] Tenant bootstrap completed and bootstrap token rotated or disabled.
+- [ ] A test GitHub installation/repository is registered.
+- [ ] A labeled test issue creates a job and a draft PR.
+- [ ] Backup timer enabled and a restore test performed.
+- [ ] Firewall allows only SSH, HTTP and HTTPS.
+- [ ] SSH password login disabled; key authentication only.
+- [ ] Monitoring/log retention configured.
+- [ ] Billing, privacy policy, terms, DPA/security commitments reviewed before public customers.

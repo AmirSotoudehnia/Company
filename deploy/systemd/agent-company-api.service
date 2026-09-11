@@ -1,0 +1,23 @@
+[Unit]
+Description=Agent Company API
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=agentcompany
+Group=agentcompany
+WorkingDirectory=/opt/agent-company
+EnvironmentFile=/etc/agent-company/agent-company.env
+ExecStart=/opt/agent-company/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/agent-company /tmp/agent-company-workspaces
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
