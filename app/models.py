@@ -14,3 +14,9 @@ class ApprovalDecision(BaseModel):
 
 class GitHubImport(BaseModel):
     issue_number: int
+
+
+class AutonomousCodeRequest(BaseModel):
+    issue_number: int
+    branch: str | None = None
+    max_attempts: int = Field(default=3, ge=1, le=5)
