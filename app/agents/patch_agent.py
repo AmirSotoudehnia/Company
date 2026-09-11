@@ -90,7 +90,9 @@ class PatchAgent:
 
     @staticmethod
     def _validate_path(value: str) -> str:
-        value = value.replace("\\", "/").strip().lstrip("./")
+        value = value.replace("\\", "/").strip()
+        while value.startswith("./"):
+            value = value[2:]
         if not value or value.startswith("/") or ".." in Path(value).parts:
             raise PatchPlanError(f"Unsafe path: {value!r}")
         blocked = {".env", ".git"}
