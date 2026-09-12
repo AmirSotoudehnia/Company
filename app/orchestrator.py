@@ -1,5 +1,6 @@
 from app.db import db
 from app.agents.manager import ProjectManagerAgent
+from app.agents.architect import ArchitectAgent
 from app.agents.developer import DeveloperAgent
 from app.agents.qa import QAAgent, BugFixAgent
 from app.agents.delivery import DeliveryAgent
@@ -29,7 +30,8 @@ class Orchestrator:
             if count:
                 return
             conn.executemany("INSERT INTO tasks(project_id,title,description,role) VALUES(?,?,?,?)", [
-                (project_id, "Create implementation plan", "Convert brief to technical tasks", "project_manager"),
+                (project_id, "Create implementation plan", "Define objective, acceptance criteria, workstreams, and risks", "project_manager"),
+                (project_id, "Create architecture plan", "Inspect stack, entrypoints, tests, constraints, and implementation order", "architect"),
                 (project_id, "Implement requested functionality", "Build requested change", "developer"),
                 (project_id, "Run QA and regression checks", "Validate acceptance criteria", "qa"),
                 (project_id, "Prepare release package", "Create delivery notes", "delivery"),
@@ -49,7 +51,9 @@ class Orchestrator:
         self._seed_tasks(project_id)
         status = project["status"]
         if status == "new":
-            self._run_agent(project_id, ProjectManagerAgent()); status = "planned"
+            self._run_agent(project_id, ProjectManagerAgent()); status = "pm_planned"
+        if status == "pm_planned":
+            self._run_agent(project_id, ArchitectAgent()); status = "planned"
         if status == "planned":
             self._run_agent(project_id, DeveloperAgent()); status = "development_done"
         if status in ("development_done", "fixed"):
