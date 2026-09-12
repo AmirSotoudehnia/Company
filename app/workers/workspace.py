@@ -8,7 +8,6 @@ import time
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import quote
 
 from app.core.settings import settings
 
@@ -40,17 +39,13 @@ class RepositoryWorkspace:
         self.path = Path(settings.workspace_root) / f"{repo}-{safe_task}"
 
     def _remote_url(self) -> str:
-        token_value = self.token or settings.github_token
-        if token_value:
-            token = quote(token_value, safe="")
-            return f"https://x-access-token:{token}@github.com/{self.owner}/{self.repo}.git"
         return f"https://github.com/{self.owner}/{self.repo}.git"
 
     def prepare(self, base_branch: str = "main") -> Path:
         if self.path.exists():
             shutil.rmtree(self.path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        result = self._run_external(["git", "clone", "--depth", "1", "--branch", base_branch, self._remote_url(), str(self.path)])
+        result = self._run_git_transport(["git", "clone", "--depth", "1", "--branch", base_branch, self._remote_url(), str(self.path)])
         if not result.ok:
             raise WorkspaceError(result.stderr or result.stdout)
         return self.path
@@ -77,13 +72,32 @@ class RepositoryWorkspace:
         commit = self.run(["git", "commit", "-m", message])
         if not commit.ok and "nothing to commit" not in (commit.stdout + commit.stderr).lower():
             raise WorkspaceError(commit.stderr or commit.stdout)
-        push = self.run(["git", "push", "origin", branch_name])
+        push = self._run_git_transport(["git", "push", "origin", branch_name], cwd=self.path)
         if not push.ok:
             raise WorkspaceError(push.stderr or push.stdout)
         sha = self.run(["git", "rev-parse", "HEAD"])
         if not sha.ok:
             raise WorkspaceError(sha.stderr or sha.stdout)
         return sha.stdout.strip()
+
+
+    def reset_changes(self) -> None:
+        reset = self.run(["git", "reset", "--hard", "HEAD"])
+        clean = self.run(["git", "clean", "-fd"])
+        if not reset.ok or not clean.ok:
+            raise WorkspaceError(reset.stderr or clean.stderr or reset.stdout or clean.stdout)
+
+    def _run_git_transport(self, command: list[str], cwd: Path | None = None) -> CommandResult:
+        token = self.token or settings.github_token
+        if not token:
+            return self._run_external(command, cwd=cwd)
+        askpass = self.path.parent / f".askpass-{self.path.name}.bat"
+        askpass.write_text("@echo off\r\nif /I \"%~1\"==\"Username for 'https://github.com': \" (echo x-access-token) else (echo %AGENT_GIT_TOKEN%)\r\n", encoding="utf-8")
+        env = {"GIT_ASKPASS": str(askpass), "GIT_TERMINAL_PROMPT": "0", "AGENT_GIT_TOKEN": token}
+        try:
+            return self._run_external(command, cwd=cwd, extra_env=env)
+        finally:
+            askpass.unlink(missing_ok=True)
 
     def cleanup(self) -> None:
         if not self.path.exists():
@@ -103,9 +117,9 @@ class RepositoryWorkspace:
                     return
                 time.sleep(0.2 * (attempt + 1))
 
-    def _run_external(self, command: list[str], cwd: Path | None = None, timeout: int | None = None) -> CommandResult:
+    def _run_external(self, command: list[str], cwd: Path | None = None, timeout: int | None = None, extra_env: dict[str, str] | None = None) -> CommandResult:
         try:
-            proc = subprocess.run(command, cwd=str(cwd) if cwd else None, text=True, capture_output=True, timeout=timeout or settings.command_timeout_seconds, env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+            proc = subprocess.run(command, cwd=str(cwd) if cwd else None, text=True, capture_output=True, timeout=timeout or settings.command_timeout_seconds, env={**os.environ, "GIT_TERMINAL_PROMPT": "0", **(extra_env or {})})
         except subprocess.TimeoutExpired as exc:
             raise WorkspaceError(f"Command timed out: {' '.join(command)}") from exc
         return CommandResult(" ".join(command), proc.returncode, proc.stdout, proc.stderr)

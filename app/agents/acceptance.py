@@ -14,7 +14,7 @@ class AcceptanceResult:
 class AcceptanceReviewer:
     """Cheap deterministic acceptance checks before a branch may be pushed."""
 
-    def review(self, root: Path, task: str) -> AcceptanceResult:
+    def review(self, root: Path, task: str, changed_files: list[str] | None = None) -> AcceptanceResult:
         text = task.lower()
         main = self._main_file(root)
         if main is None:
@@ -26,11 +26,22 @@ class AcceptanceReviewer:
         missing = sorted(path for path in requested if path not in routes)
         if missing:
             return AcceptanceResult(False, "Acceptance failed: missing requested route(s): " + ", ".join(missing))
+        if changed_files is not None and any(word in text for word in ("test", "tests", "tested")):
+            if not any(Path(path).name.startswith("test_") or "/tests/" in f"/{path}" for path in changed_files):
+                return AcceptanceResult(False, "Acceptance failed: task requires automated tests, but no test file changed.")
         if "/version" in requested:
             if not re.search(r'(?m)^[A-Z_]*VERSION[A-Z_]*\s*=|__version__\s*=', source):
                 return AcceptanceResult(False, "Acceptance failed: /version must source its value from a single application version constant.")
             if not re.search(r'@app\.get\(["\']/version["\']\)', source):
                 return AcceptanceResult(False, "Acceptance failed: GET /version endpoint was not implemented.")
+            if changed_files is not None and any(word in text for word in ("test", "tests", "tested")):
+                test_sources = []
+                for path in changed_files:
+                    candidate = root / path
+                    if candidate.is_file() and (candidate.name.startswith("test_") or "tests" in candidate.parts):
+                        test_sources.append(candidate.read_text(encoding="utf-8", errors="ignore"))
+                if not any("/version" in body for body in test_sources):
+                    return AcceptanceResult(False, "Acceptance failed: tests do not cover /version.")
         return AcceptanceResult(True)
 
     @staticmethod

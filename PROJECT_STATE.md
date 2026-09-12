@@ -67,3 +67,14 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - GitHub CI for PR #6 passed successfully on commit 5b05f0167e497b06a758d65337965fda14035440.
 - PR #6 diff reviewed at a high level: deterministic acceptance/editing, safer PatchAgent parsing, endpoint-aware context, Windows workspace/sandbox fixes, local LLM controls, PyJWT sandbox dependency, tests, and state tracking.
 - No merge is allowed until human approval; next action is mark PR #6 ready for review after this state update passes CI.
+
+## 2026-09-12 core hardening batch
+- PR #6 passed CI and was squash-merged to main at be9bbabf851720677f4b2a6a95066b4751504f0f.
+- AcceptanceReviewer now receives changed files, requires a changed test file when the task requires tests, and verifies /version test coverage.
+- LLM retries now reset tracked/untracked workspace changes between attempts so failed patches cannot accumulate.
+- Git transport no longer embeds explicit tokens in remote URLs; temporary GIT_ASKPASS credentials are used and deleted after transport.
+- .env.local is loaded safely with existing environment variables taking precedence; no dotenv dependency is required.
+- Native Ollama /api/chat mode added so num_ctx, num_predict, and keep_alive controls are sent to Ollama directly; live local probe succeeded with qwen2.5-coder:1.5b.
+- Deployment docs/install script now use the real docker/sandbox.Dockerfile path.
+- Expanded regression suite: 38 tests passing locally. C: remained above the 10 GB minimum.
+- Work branch: feature/core-hardening-batch. Next gate: push, create PR, verify GitHub CI, human-approved merge only.

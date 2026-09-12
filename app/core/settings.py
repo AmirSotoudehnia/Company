@@ -1,5 +1,22 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+
+def _load_local_env() -> None:
+    path = Path(os.getenv("AGENT_COMPANY_ENV_FILE", ".env.local"))
+    if not path.is_file():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+_load_local_env()
+
 
 
 def _bool_env(name: str, default: bool = False) -> bool:
