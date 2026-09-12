@@ -46,3 +46,16 @@ class RepositoryRegister(BaseModel):
 
 class CodeJobRequest(BaseModel):
     issue_number: int = Field(gt=0)
+
+
+class OpportunityCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=160)
+    brief: str = Field(min_length=10)
+    source: str = Field(default="manual", min_length=1, max_length=80)
+    source_url: str = Field(default="", max_length=500)
+    budget: float | None = Field(default=None, ge=0)
+
+
+class SalesApprovalDecision(BaseModel):
+    approved: bool
+    note: str = ""

@@ -96,3 +96,14 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Added regression tests for pass/block behavior and gate ordering.
 - Local suite: 46 tests passing; human production approval remains required.
 - Work branch: feature/security-code-review-agents; next gate is GitHub CI then human-approved merge.
+
+## 2026-09-12 Opportunity + Sales milestone
+- PR #9 passed CI and was squash-merged to main at 8aaae97822346c7d74e0bac328641b13d1a51911.
+- Added OpportunityAgent for capability-fit scoring, qualification, and risk flags.
+- Added SalesAgent that drafts proposals but never sends or commits terms automatically.
+- Added persistent opportunities and sales_approvals tables plus SalesPipeline.
+- Added opportunity create/list/get and explicit proposal-approval API endpoints.
+- Qualified opportunities stop at a human approval gate before any customer outreach.
+- Risky/low-fit opportunities remain not_ready and create no outbound approval action.
+- Local suite: 50 tests passing; C: remains above the 10 GB minimum.
+- Work branch: feature/opportunity-sales-pipeline; next gate is GitHub CI then human-approved merge.

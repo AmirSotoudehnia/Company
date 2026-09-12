@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -95,7 +95,28 @@ def init_db():
             FOREIGN KEY(repository_id) REFERENCES repositories(id) ON DELETE SET NULL
         );
         CREATE INDEX IF NOT EXISTS idx_audit_tenant ON audit_logs(tenant_id, id DESC);
-        CREATE TABLE IF NOT EXISTS webhook_deliveries (
+        CREATE TABLE IF NOT EXISTS opportunities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            brief TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'manual',
+            source_url TEXT NOT NULL DEFAULT '',
+            budget REAL,
+            score INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'new',
+            assessment_json TEXT NOT NULL DEFAULT '{}',
+            proposal_text TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS sales_approvals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            opportunity_id INTEGER NOT NULL,
+            kind TEXT NOT NULL DEFAULT 'send_proposal',
+            status TEXT NOT NULL DEFAULT 'pending',
+            note TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(opportunity_id) REFERENCES opportunities(id) ON DELETE CASCADE
+        );        CREATE TABLE IF NOT EXISTS webhook_deliveries (
             delivery_id TEXT PRIMARY KEY,
             event TEXT NOT NULL,
             tenant_id INTEGER,
@@ -118,3 +139,4 @@ def db():
         conn.commit()
     finally:
         conn.close()
+
