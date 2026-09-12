@@ -59,3 +59,11 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Draft PR #5 created for human review. Diff inspected: only app/main.py and tests/test_version_endpoint.py; 19 additions, 2 deletions. Do not auto-merge.
 - Earlier v6/v7 branches are superseded; PR #4 remains known-bad and must not be merged.
 - Next: verify GitHub CI for PR #5, then human-review/merge decision; afterwards commit the local platform improvements separately.
+## 2026-09-12 PR #6 review milestone
+- PR #5 passed GitHub CI and was squash-merged into main at 8529dd942fbca3fcfc0815c2bc8a761a12202dd9.
+- Known-bad PR #4 was closed without merge.
+- feature/local-ollama was rebased onto the new main and pushed as PR #6: Harden autonomous coding pipeline.
+- Local post-rebase suite: 33 passing.
+- GitHub CI for PR #6 passed successfully on commit 5b05f0167e497b06a758d65337965fda14035440.
+- PR #6 diff reviewed at a high level: deterministic acceptance/editing, safer PatchAgent parsing, endpoint-aware context, Windows workspace/sandbox fixes, local LLM controls, PyJWT sandbox dependency, tests, and state tracking.
+- No merge is allowed until human approval; next action is mark PR #6 ready for review after this state update passes CI.
