@@ -57,6 +57,7 @@ class DockerSandbox:
         if not argv:
             raise WorkspaceError("Sandbox command is empty")
 
+        mount_source = root.as_posix() if len(root.drive) == 0 else root.as_posix()
         docker_cmd = [
             "docker", "run", "--rm",
             "--network", self.limits.network,
@@ -68,7 +69,7 @@ class DockerSandbox:
             "--read-only",
             "--tmpfs", "/tmp:rw,noexec,nosuid,size=256m",
             "--tmpfs", "/home/agent:rw,noexec,nosuid,size=64m",
-            "--mount", f"type=bind,src={root},dst=/workspace,rw",
+            "--mount", f"type=bind,source={mount_source},target=/workspace",
             "--workdir", "/workspace",
             "--user", settings.sandbox_user,
             "--env", "HOME=/home/agent",

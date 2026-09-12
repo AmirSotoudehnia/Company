@@ -60,3 +60,20 @@ def test_docker_sandbox_does_not_forward_host_environment(tmp_path, monkeypatch)
     rendered = " ".join(command)
     assert "GITHUB_TOKEN" not in rendered
     assert "LLM_API_KEY" not in rendered
+
+
+def test_docker_mount_uses_windows_safe_key_value_syntax(tmp_path, monkeypatch):
+    calls = []
+    class Result:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        return Result()
+    monkeypatch.setattr(sandbox_module.subprocess, "run", fake_run)
+    DockerSandbox(image="sandbox:test").run(Path(tmp_path), "python -m pytest -q")
+    command = calls[-1]
+    mount = command[command.index("--mount") + 1]
+    assert "source=" in mount and "target=/workspace" in mount
+    assert not mount.endswith(",rw")

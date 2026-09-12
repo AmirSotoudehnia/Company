@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.agents.patch_agent import PatchAgent
+from app.agents.acceptance import AcceptanceReviewer
+from app.agents.deterministic_edits import DeterministicEditor, DeterministicEditError
+from app.agents.patch_agent import PatchAgent, PatchPlanError
 from app.core.settings import settings
 from app.integrations.github import create_pull_request
 from app.workers.sandbox import run_test_command
@@ -28,6 +30,8 @@ class CodingAgent:
         self.owner = owner
         self.repo = repo
         self.patch_agent = patch_agent or PatchAgent()
+        self.acceptance_reviewer = AcceptanceReviewer()
+        self.deterministic_editor = DeterministicEditor()
         self.token = token
         self.installation_id = installation_id
 
@@ -42,13 +46,44 @@ class CodingAgent:
             feedback = ""
             changed_files: list[str] = []
             latest_output = ""
+            try:
+                deterministic = self.deterministic_editor.apply(ws.path, task)
+                if deterministic:
+                    changed_files = deterministic
+                    test = run_test_command(ws.path, test_command)
+                    latest_output = (test.stdout + "\n" + test.stderr).strip()
+                    if test.ok:
+                        acceptance = self.acceptance_reviewer.review(ws.path, task)
+                        if acceptance.ok:
+                            sha = ws.commit_and_push(branch, f"agent: {title}")
+                            pr = create_pull_request(
+                                title, description + "\n\nDeterministic implementation\nChanged files: " + ", ".join(changed_files),
+                                branch, base=base_branch, owner=self.owner, repo=self.repo,
+                                installation_id=self.installation_id, token=self.token,
+                            )
+                            return CodingRunResult(branch, sha, True, latest_output, pr.get("html_url"), changed_files, 0)
+                        feedback = acceptance.feedback
+                    else:
+                        feedback = latest_output
+            except DeterministicEditError as exc:
+                feedback = f"Deterministic edit unavailable: {exc}"
             for attempt in range(1, max_attempts + 1):
                 context = self._collect_context(ws.path, task, changed_files)
-                plan = self.patch_agent.propose(task=task, context=context, test_feedback=feedback)
-                changed_files = self.patch_agent.apply(ws.path, plan)
+                try:
+                    plan = self.patch_agent.propose(task=task, context=context, test_feedback=feedback)
+                    changed_files = self.patch_agent.apply(ws.path, plan)
+                except PatchPlanError as exc:
+                    feedback = f"Patch rejected: {exc}. Re-read the CURRENT file content provided on the next attempt and use an exact find string from it."
+                    latest_output = feedback
+                    continue
                 test = run_test_command(ws.path, test_command)
                 latest_output = (test.stdout + "\n" + test.stderr).strip()
                 if test.ok:
+                    acceptance = self.acceptance_reviewer.review(ws.path, task)
+                    if not acceptance.ok:
+                        feedback = acceptance.feedback
+                        latest_output = feedback
+                        continue
                     sha = ws.commit_and_push(branch, f"agent: {title}")
                     pr = create_pull_request(
                         title,
@@ -87,35 +122,72 @@ class CodingAgent:
 
     @staticmethod
     def _collect_context(root: Path, task: str, preferred: list[str]) -> dict[str, str]:
-        blocked_dirs = {".git", ".venv", "node_modules", "build", "dist", ".dart_tool"}
+        blocked_dirs = {".git", ".venv", "node_modules", "build", "dist", ".dart_tool", "workspaces", "ollama-models"}
         allowed_suffixes = {".py", ".md", ".toml", ".txt", ".json", ".yaml", ".yml", ".js", ".ts", ".tsx", ".jsx", ".dart", ".kt", ".kts", ".java", ".swift", ".html", ".css"}
-        candidates: list[Path] = []
+        stop_words = {"add", "with", "from", "that", "this", "must", "should", "current", "application", "automated", "existing", "continue", "pass", "issue", "intended", "first", "validation", "after", "human", "review"}
+        task_terms = {w.strip(".,:;()[]{}'\"").lower() for w in task.replace("/", " ").replace("_", " ").replace("-", " ").split()}
+        task_terms = {w for w in task_terms if len(w) >= 4 and w not in stop_words}
+        preferred_set = set(preferred)
+        candidates: list[tuple[Path, str, int]] = []
+        endpoint_task = any(word in task.lower() for word in ("endpoint", "route", "api", "http"))
+        if endpoint_task:
+            result: dict[str, str] = {}
+            for rel in ("app/main.py", "main.py", "src/main.py"):
+                entry = root / rel
+                if entry.is_file():
+                    try:
+                        result[rel] = entry.read_text(encoding="utf-8")[:3_500]
+                    except (UnicodeDecodeError, OSError):
+                        pass
+                    break
+            test_candidates = sorted((root / "tests").glob("test_*.py")) if (root / "tests").is_dir() else []
+            for test_file in test_candidates:
+                try:
+                    content = test_file.read_text(encoding="utf-8")
+                except (UnicodeDecodeError, OSError):
+                    continue
+                lower = content.lower()
+                if any(key in lower for key in ("testclient", "client", "/health", "fastapi")):
+                    result[test_file.relative_to(root).as_posix()] = content[:2_500]
+                    break
+            if result:
+                return result
+
         for path in root.rglob("*"):
             if not path.is_file() or any(part in blocked_dirs for part in path.parts):
                 continue
-            if path.suffix.lower() in allowed_suffixes or path.name in {"Dockerfile", "Makefile"}:
-                candidates.append(path)
-        preferred_set = set(preferred)
-        task_terms = {w.lower() for w in task.replace("/", " ").replace("_", " ").split() if len(w) > 3}
-        def score(path: Path) -> tuple[int, int, str]:
-            rel = path.relative_to(root).as_posix()
-            s = 100 if rel in preferred_set else 0
-            s += sum(5 for term in task_terms if term in rel.lower())
-            if rel.startswith("tests/"):
-                s += 3
-            return (-s, len(rel), rel)
-        result: dict[str, str] = {}
-        total = 0
-        for path in sorted(candidates, key=score):
-            if len(result) >= 24 or total >= 120_000:
-                break
+            if path.suffix.lower() not in allowed_suffixes and path.name not in {"Dockerfile", "Makefile"}:
+                continue
             try:
                 content = path.read_text(encoding="utf-8")
             except (UnicodeDecodeError, OSError):
                 continue
-            if len(content) > 20_000:
-                content = content[:20_000] + "\n# ... truncated ..."
             rel = path.relative_to(root).as_posix()
+            lower_rel = rel.lower()
+            lower_content = content.lower()
+            score = 200 if rel in preferred_set else 0
+            score += sum(20 for term in task_terms if term in lower_rel)
+            score += min(60, sum(min(3, lower_content.count(term)) * 5 for term in task_terms))
+            if endpoint_task and rel in {"app/main.py", "main.py", "src/main.py"}:
+                score += 300
+            if endpoint_task and rel.startswith("tests/") and any(key in lower_rel for key in ("api", "main", "endpoint", "route")):
+                score += 120
+            if rel.startswith("tests/"):
+                score += 10
+                if endpoint_task and ("client" in lower_content or "fastapi" in lower_content or "http" in lower_content):
+                    score += 35
+            candidates.append((path, content, score))
+
+        result: dict[str, str] = {}
+        total = 0
+        for path, content, _ in sorted(candidates, key=lambda item: (-item[2], len(item[0].as_posix()), item[0].as_posix())):
+            if len(result) >= 3 or total >= 14_000:
+                break
+            if len(content) > 8_000:
+                content = content[:8_000] + "\n# ... truncated ..."
+            rel = path.relative_to(root).as_posix()
+            if total + len(content) > 14_000 and result:
+                continue
             result[rel] = content
             total += len(content)
         return result
