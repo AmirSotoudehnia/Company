@@ -78,3 +78,11 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Deployment docs/install script now use the real docker/sandbox.Dockerfile path.
 - Expanded regression suite: 38 tests passing locally. C: remained above the 10 GB minimum.
 - Work branch: feature/core-hardening-batch. Next gate: push, create PR, verify GitHub CI, human-approved merge only.
+## 2026-09-12 PM + Architect milestone
+- PR #7 passed CI and was squash-merged to main at bb90a3b15dbde3c322f26bf59f5af2e4768a3076.
+- Added a structured ProjectManagerAgent plan: objective, acceptance criteria, workstreams, and risk notes.
+- Added ArchitectAgent repository inspection: stack, entrypoints, test locations, constraints, and implementation order.
+- Orchestrator flow is now PM -> Architect -> Developer -> QA/Bug Fix -> Delivery -> human approval.
+- Added architecture task seeding and ordering/regression tests.
+- Local suite: 41 tests passing; C: remains above 10 GB.
+- Work branch: feature/pm-architect-agents; next gate is GitHub CI then human-approved merge.
