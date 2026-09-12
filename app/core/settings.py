@@ -33,6 +33,9 @@ class Settings:
     llm_base_url: str = os.getenv("LLM_BASE_URL", "")
     llm_api_key: str = os.getenv("LLM_API_KEY", "")
     llm_model: str = os.getenv("LLM_MODEL", "")
+    llm_num_ctx: int = int(os.getenv("LLM_NUM_CTX", "2048"))
+    llm_num_predict: int = int(os.getenv("LLM_NUM_PREDICT", "1536"))
+    llm_keep_alive: str = os.getenv("LLM_KEEP_ALIVE", "0")
 
 
 settings = Settings()

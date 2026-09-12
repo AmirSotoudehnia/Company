@@ -29,6 +29,9 @@ class LLMClient:
             "model": settings.llm_model,
             "temperature": 0,
             "response_format": {"type": "json_object"},
+            "max_tokens": settings.llm_num_predict,
+            "options": {"num_ctx": settings.llm_num_ctx, "num_predict": settings.llm_num_predict},
+            "keep_alive": settings.llm_keep_alive,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},

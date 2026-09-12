@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import shlex
 import shutil
+import stat
+import time
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -84,8 +86,22 @@ class RepositoryWorkspace:
         return sha.stdout.strip()
 
     def cleanup(self) -> None:
-        if self.path.exists():
-            shutil.rmtree(self.path)
+        if not self.path.exists():
+            return
+        def onerror(func, path, exc_info):
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            except OSError:
+                pass
+        for attempt in range(3):
+            try:
+                shutil.rmtree(self.path, onerror=onerror)
+                return
+            except (PermissionError, OSError):
+                if attempt == 2:
+                    return
+                time.sleep(0.2 * (attempt + 1))
 
     def _run_external(self, command: list[str], cwd: Path | None = None, timeout: int | None = None) -> CommandResult:
         try:
