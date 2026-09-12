@@ -29,3 +29,14 @@ def test_flow_runs_pm_before_architect():
     assert "architect" in actors
     assert actors.index("project_manager") < actors.index("architect")
     assert any(task["role"] == "architect" for task in snap["tasks"])
+
+def test_flow_runs_review_and_security_before_delivery():
+    init_db()
+    with db() as conn:
+        cur = conn.execute("INSERT INTO projects(name,brief,risk_level) VALUES(?,?,?)", ("Gated", "Build safe API", "normal"))
+        pid = cur.lastrowid
+    snap = Orchestrator().run(pid)
+    actors = [event["actor"] for event in snap["events"]]
+    assert actors.index("qa") < actors.index("code_review") < actors.index("security") < actors.index("delivery")
+    assert any(task["role"] == "code_review" for task in snap["tasks"])
+    assert any(task["role"] == "security" for task in snap["tasks"])

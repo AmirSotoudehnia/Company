@@ -86,3 +86,13 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Added architecture task seeding and ordering/regression tests.
 - Local suite: 41 tests passing; C: remains above 10 GB.
 - Work branch: feature/pm-architect-agents; next gate is GitHub CI then human-approved merge.
+
+## 2026-09-12 Security + Code Review milestone
+- PR #8 passed GitHub CI and was squash-merged to main at 1452ccd5b1c9c57a17a5614d41c847581fa221e6.
+- Added independent CodeReviewAgent after QA, with a fail-closed review_blocked state.
+- Added SecurityAgent after code review, with a fail-closed security_blocked state.
+- Release preparation now runs only after both quality and security gates pass.
+- Seeded explicit code-review and security tasks in the orchestrator workflow.
+- Added regression tests for pass/block behavior and gate ordering.
+- Local suite: 46 tests passing; human production approval remains required.
+- Work branch: feature/security-code-review-agents; next gate is GitHub CI then human-approved merge.

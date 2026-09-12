@@ -3,6 +3,8 @@ from app.agents.manager import ProjectManagerAgent
 from app.agents.architect import ArchitectAgent
 from app.agents.developer import DeveloperAgent
 from app.agents.qa import QAAgent, BugFixAgent
+from app.agents.review import CodeReviewAgent
+from app.agents.security import SecurityAgent
 from app.agents.delivery import DeliveryAgent
 
 
@@ -23,7 +25,6 @@ class Orchestrator:
     def _set_status(self, project_id, status):
         with db() as conn:
             conn.execute("UPDATE projects SET status=? WHERE id=?", (status, project_id))
-
     def _seed_tasks(self, project_id):
         with db() as conn:
             count = conn.execute("SELECT COUNT(*) c FROM tasks WHERE project_id=?", (project_id,)).fetchone()["c"]
@@ -34,6 +35,8 @@ class Orchestrator:
                 (project_id, "Create architecture plan", "Inspect stack, entrypoints, tests, constraints, and implementation order", "architect"),
                 (project_id, "Implement requested functionality", "Build requested change", "developer"),
                 (project_id, "Run QA and regression checks", "Validate acceptance criteria", "qa"),
+                (project_id, "Review code quality", "Review maintainability, scope, regressions, and test expectations", "code_review"),
+                (project_id, "Run security review", "Review secrets, authentication, input handling, and least privilege", "security"),
                 (project_id, "Prepare release package", "Create delivery notes", "delivery"),
             ])
 
@@ -63,13 +66,18 @@ class Orchestrator:
                 self._set_status(project_id, "qa_passed")
             status = self._project(project_id)["status"]
         if status == "qa_passed":
+            result = self._run_agent(project_id, CodeReviewAgent())
+            status = result.next_status
+        if status == "review_passed":
+            result = self._run_agent(project_id, SecurityAgent())
+            status = result.next_status
+        if status == "security_passed":
             self._run_agent(project_id, DeliveryAgent())
             with db() as conn:
                 existing = conn.execute("SELECT id FROM approvals WHERE project_id=? AND kind='production_delivery'", (project_id,)).fetchone()
                 if not existing:
                     conn.execute("INSERT INTO approvals(project_id,kind,status,note) VALUES(?,?,?,?)", (project_id, "production_delivery", "pending", "Approve final production delivery"))
         return self.snapshot(project_id)
-
     def snapshot(self, project_id):
         with db() as conn:
             project = conn.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
