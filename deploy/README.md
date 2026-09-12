@@ -61,7 +61,7 @@ Build the sandbox image once after each sandbox Dockerfile change:
 
 ```bash
 cd /opt/agent-company
-sudo -u agentcompany docker build -f sandbox/Dockerfile -t agent-company-sandbox:py312 .
+sudo -u agentcompany docker build -f docker/sandbox.Dockerfile -t agent-company-sandbox:py312 .
 ```
 
 For HTTPS, copy `deploy/Caddyfile.example` to `/etc/caddy/Caddyfile`, replace the hostname, and reload Caddy.

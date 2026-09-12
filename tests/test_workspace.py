@@ -46,3 +46,26 @@ def test_context_selection_prioritizes_endpoint_entrypoint(tmp_path):
     assert list(context) == ["app/main.py", "tests/test_api.py"]
     assert len(context) <= 3
     assert sum(len(v) for v in context.values()) <= 14_000
+
+
+def test_remote_url_never_contains_token(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.workers.workspace.settings.workspace_root", str(tmp_path))
+    ws = RepositoryWorkspace("owner", "repo", "token", token="super-secret")
+    assert ws._remote_url() == "https://github.com/owner/repo.git"
+    assert "super-secret" not in ws._remote_url()
+
+
+def test_reset_changes_discards_tracked_and_untracked(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.workers.workspace.settings.workspace_root", str(tmp_path))
+    ws = RepositoryWorkspace("owner", "repo", "reset")
+    ws.path.mkdir(parents=True)
+    import subprocess
+    subprocess.run(["git", "init"], cwd=ws.path, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=ws.path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=ws.path, check=True)
+    (ws.path / "a.txt").write_text("base")
+    subprocess.run(["git", "add", "."], cwd=ws.path, check=True); subprocess.run(["git", "commit", "-m", "base"], cwd=ws.path, check=True, capture_output=True)
+    (ws.path / "a.txt").write_text("changed"); (ws.path / "new.txt").write_text("new")
+    ws.reset_changes()
+    assert (ws.path / "a.txt").read_text() == "base"
+    assert not (ws.path / "new.txt").exists()

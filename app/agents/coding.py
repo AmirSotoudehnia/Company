@@ -53,7 +53,7 @@ class CodingAgent:
                     test = run_test_command(ws.path, test_command)
                     latest_output = (test.stdout + "\n" + test.stderr).strip()
                     if test.ok:
-                        acceptance = self.acceptance_reviewer.review(ws.path, task)
+                        acceptance = self.acceptance_reviewer.review(ws.path, task, changed_files)
                         if acceptance.ok:
                             sha = ws.commit_and_push(branch, f"agent: {title}")
                             pr = create_pull_request(
@@ -68,6 +68,9 @@ class CodingAgent:
             except DeterministicEditError as exc:
                 feedback = f"Deterministic edit unavailable: {exc}"
             for attempt in range(1, max_attempts + 1):
+                if attempt > 1:
+                    ws.reset_changes()
+                    changed_files = []
                 context = self._collect_context(ws.path, task, changed_files)
                 try:
                     plan = self.patch_agent.propose(task=task, context=context, test_feedback=feedback)
@@ -79,7 +82,7 @@ class CodingAgent:
                 test = run_test_command(ws.path, test_command)
                 latest_output = (test.stdout + "\n" + test.stderr).strip()
                 if test.ok:
-                    acceptance = self.acceptance_reviewer.review(ws.path, task)
+                    acceptance = self.acceptance_reviewer.review(ws.path, task, changed_files)
                     if not acceptance.ok:
                         feedback = acceptance.feedback
                         latest_output = feedback
