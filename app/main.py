@@ -1,4 +1,4 @@
-import json
+﻿import json
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
@@ -9,8 +9,9 @@ from app.core.settings import settings
 from app.db import db, init_db
 from app.integrations.github import get_issue
 from app.integrations.webhooks import WebhookError, process_github_webhook, verify_signature
-from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap
+from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, OpportunityCreate, SalesApprovalDecision
 from app.orchestrator import Orchestrator
+from app.sales_pipeline import SalesPipeline
 from app.platform.audit import audit, list_audit
 from app.platform.policy import RepositoryPolicy
 from app.platform.queue import enqueue_job, list_jobs
@@ -19,6 +20,7 @@ from app.security.tenant_auth import require_tenant
 
 app = FastAPI(title="Agent Company", version=APP_VERSION)
 orch = Orchestrator()
+sales = SalesPipeline()
 
 
 @app.on_event("startup")
@@ -184,3 +186,30 @@ def autonomously_code_issue(body: AutonomousCodeRequest):
         return result.__dict__
     except Exception as e:
         raise HTTPException(400, str(e))
+
+
+
+@app.post("/opportunities")
+def create_opportunity(body: OpportunityCreate):
+    return sales.create(body.title, body.brief, body.source, body.source_url, body.budget)
+
+
+@app.get("/opportunities")
+def list_opportunities():
+    return sales.list()
+
+
+@app.get("/opportunities/{opportunity_id}")
+def get_opportunity(opportunity_id: int):
+    try:
+        return sales.get(opportunity_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
+@app.post("/opportunities/{opportunity_id}/approve/{approval_id}")
+def approve_sales(opportunity_id: int, approval_id: int, body: SalesApprovalDecision):
+    try:
+        return sales.decide(opportunity_id, approval_id, body.approved, body.note)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
