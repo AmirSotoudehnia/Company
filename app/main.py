@@ -2,6 +2,8 @@ import json
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
+APP_VERSION = "0.5.0"
+
 from app.agents.coding import CodingAgent
 from app.core.settings import settings
 from app.db import db, init_db
@@ -15,7 +17,7 @@ from app.platform.queue import enqueue_job, list_jobs
 from app.platform.tenancy import TenantError, create_tenant, register_installation, register_repository
 from app.security.tenant_auth import require_tenant
 
-app = FastAPI(title="Agent Company", version="0.5.0")
+app = FastAPI(title="Agent Company", version=APP_VERSION)
 orch = Orchestrator()
 
 
@@ -24,9 +26,14 @@ def startup():
     init_db()
 
 
+@app.get("/version")
+def version():
+    return {"version": APP_VERSION}
+
+
 @app.get("/health")
 def health():
-    return {"ok": True, "version": app.version}
+    return {"ok": True, "version": APP_VERSION}
 
 
 @app.post("/tenants/bootstrap")
