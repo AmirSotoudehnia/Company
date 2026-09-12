@@ -26,7 +26,7 @@ def startup():
 
 @app.get("/health")
 def health():
-    return {"ok": True, "version": app.version}
+    return {"ok": True, "version": app.__version__}
 
 
 @app.post("/tenants/bootstrap")
