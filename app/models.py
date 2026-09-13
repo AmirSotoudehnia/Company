@@ -90,3 +90,11 @@ class OpsCheckCreate(BaseModel):
     target: str = Field(min_length=1, max_length=300)
     healthy: bool
     detail: str = Field(default="", max_length=1000)
+
+
+class InvoiceCreate(BaseModel):
+    engagement_id: int = Field(gt=0)
+    amount: float = Field(gt=0)
+    currency: str = Field(default="SEK", min_length=3, max_length=3)
+    due_date: str | None = None
+    note: str = Field(default="", max_length=1000)

@@ -6,6 +6,7 @@ from pathlib import Path
 from app.agents.acceptance import AcceptanceReviewer
 from app.agents.deterministic_edits import DeterministicEditor, DeterministicEditError
 from app.agents.patch_agent import PatchAgent, PatchPlanError
+from app.agents.repository_gates import quality_findings, security_findings
 from app.core.settings import settings
 from app.integrations.github import create_pull_request
 from app.workers.sandbox import run_test_command
@@ -55,6 +56,9 @@ class CodingAgent:
                     if test.ok:
                         acceptance = self.acceptance_reviewer.review(ws.path, task, changed_files)
                         if acceptance.ok:
+                            gates = quality_findings(ws.path, changed_files) + security_findings(ws.path, changed_files)
+                            if gates:
+                                return CodingRunResult(branch, "", False, "Repository gates blocked changes: " + "; ".join(gates), changed_files=changed_files, attempts=0)
                             sha = ws.commit_and_push(branch, f"agent: {title}")
                             pr = create_pull_request(
                                 title, description + "\n\nDeterministic implementation\nChanged files: " + ", ".join(changed_files),
@@ -68,9 +72,8 @@ class CodingAgent:
             except DeterministicEditError as exc:
                 feedback = f"Deterministic edit unavailable: {exc}"
             for attempt in range(1, max_attempts + 1):
-                if attempt > 1:
-                    ws.reset_changes()
-                    changed_files = []
+                ws.reset_changes()
+                changed_files = []
                 context = self._collect_context(ws.path, task, changed_files)
                 try:
                     plan = self.patch_agent.propose(task=task, context=context, test_feedback=feedback)
@@ -85,6 +88,11 @@ class CodingAgent:
                     acceptance = self.acceptance_reviewer.review(ws.path, task, changed_files)
                     if not acceptance.ok:
                         feedback = acceptance.feedback
+                        latest_output = feedback
+                        continue
+                    gates = quality_findings(ws.path, changed_files) + security_findings(ws.path, changed_files)
+                    if gates:
+                        feedback = "Repository gates blocked changes: " + "; ".join(gates)
                         latest_output = feedback
                         continue
                     sha = ws.commit_and_push(branch, f"agent: {title}")

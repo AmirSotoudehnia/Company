@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Company Control</title><style>
+body{font-family:system-ui;margin:0;background:#0b1020;color:#e8ecf5}.wrap{max-width:1400px;margin:auto;padding:24px}
+h1{margin:0}.muted{color:#8d99ae}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin:20px 0}
+.card,.panel{background:#151c31;border:1px solid #26314e;border-radius:14px;padding:16px}.agent{display:flex;justify-content:space-between;gap:12px}
+.status{font-size:12px;padding:4px 8px;border-radius:999px;background:#293450}.running{background:#14532d}.failed,.blocked{background:#7f1d1d}.completed{background:#164e63}.paused{background:#78350f}
+button{background:#334155;color:white;border:0;border-radius:8px;padding:7px 10px;cursor:pointer}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:9px;border-bottom:1px solid #26314e;font-size:13px}
+.cols{display:grid;grid-template-columns:2fr 1fr;gap:14px}@media(max-width:800px){.cols{grid-template-columns:1fr}}</style></head><body><div class="wrap">
+<h1>Agent Company — Live Control</h1><div class="muted" id="stamp">Connecting…</div><div class="grid" id="agents"></div>
+<div class="cols"><div class="panel"><h2>Jobs</h2><div id="jobs"></div></div><div class="panel"><h2>Pending approvals</h2><div id="approvals"></div><h2>Incidents</h2><div id="incidents"></div></div></div>
+<div class="panel" style="margin-top:14px"><h2>Projects</h2><div id="projects"></div></div>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const table=(rows,cols)=>rows.length?'<table><tr>'+cols.map(c=>'<th>'+esc(c[0])+'</th>').join('')+'</tr>'+rows.map(r=>'<tr>'+cols.map(c=>'<td>'+esc(r[c[1]])+'</td>').join('')+'</tr>').join('')+'</table>':'<span class="muted">None</span>';
+async function toggle(name,paused){await fetch('/control/agents/'+encodeURIComponent(name)+'/'+(paused?'resume':'pause'),{method:'POST'});load()}
+async function job(id,action){await fetch('/control/jobs/'+id+'/'+action,{method:'POST'});load()}
+async function load(){try{const d=await fetch('/control/snapshot').then(r=>r.json());stamp.textContent='Live • '+new Date(d.generated_at).toLocaleString();
+agents.innerHTML=d.agents.map(a=>`<div class="card"><div class="agent"><b>${esc(a.agent)}</b><span class="status ${esc(a.status)}">${esc(a.status)}</span></div><p>${esc(a.detail)||'<span class="muted">No current task</span>'}</p><small class="muted">Project ${esc(a.project_id??'-')} • Job ${esc(a.job_id??'-')}</small><br><br><button onclick="toggle('${esc(a.agent)}',${a.paused})">${a.paused?'Resume':'Pause'}</button></div>`).join('');
+jobs.innerHTML=d.jobs.length?'<table><tr><th>ID</th><th>Kind</th><th>Status</th><th>Worker</th><th>Action</th></tr>'+d.jobs.map(j=>`<tr><td>${j.id}</td><td>${esc(j.kind)}</td><td>${esc(j.status)}</td><td>${esc(j.locked_by||'-')}</td><td>${j.status==='failed'||j.status==='cancelled'?`<button onclick="job(${j.id},'retry')">Retry</button>`:''} ${j.status==='queued'||j.status==='running'?`<button onclick="job(${j.id},'cancel')">Cancel</button>`:''}</td></tr>`).join('')+'</table>':'<span class="muted">None</span>';
+approvals.innerHTML=table(d.pending_approvals,[['ID','id'],['Kind','kind'],['Status','status']]);
+incidents.innerHTML=table(d.incidents,[['Severity','severity'],['Title','title'],['Status','status']]);projects.innerHTML=table(d.projects,[['ID','id'],['Project','name'],['Status','status'],['Created','created_at']]);
+}catch(e){stamp.textContent='Disconnected • '+e} }
+load();setInterval(load,2000);
+</script></div></body></html>

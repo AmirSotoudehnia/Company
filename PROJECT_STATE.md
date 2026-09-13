@@ -1,7 +1,7 @@
 ﻿# My Company - Project State
 
 ## Goal
-Build a commercializable autonomous software-delivery company centered on GitHub: Issue -> planning/coding -> isolated tests -> bug-fix loop -> acceptance/review -> draft PR -> human approval -> merge/release. Human approval remains mandatory for merge and production. Opportunity/Sales agents come later.
+Build an AI-operated software company: continuously discover real opportunities -> qualify -> sales/CRM -> owner approval for commitments -> customer intake -> plan/build/test/fix/review/security -> delivery -> invoice/follow-up -> repeat. GitHub/Docker/LLM are internal execution tools, not the product goal. Human approval remains mandatory for commercial commitments, merge, and production.
 
 ## Hard local constraints
 - All project work/data/workspaces/models belong under I:\Company.
@@ -129,3 +129,36 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Customer Intake + scope/milestones, Customer Communication, and Monitoring/Operations are now on main.
 - Human approval remains required before outbound customer commitments/messages and production-sensitive actions.
 - Multi-stack support remains intentionally deferred.
+
+## 2026-09-13 Live Control Panel milestone
+- Added a live web control panel at /control with automatic 2-second refresh.
+- Added persistent per-agent activity: idle/running/completed/failed/paused, current project/job, detail, and timestamp.
+- Orchestrated PM/Architect/Developer/QA/BugFix/Review/Security/Delivery activity is recorded live.
+- Background Coding Agent activity is recorded against queue job IDs.
+- Added operator Pause/Resume controls for agents and Retry/Cancel controls for queue jobs.
+- Dashboard includes projects, jobs/workers, pending approvals, and open incidents.
+- Human approval gates for customer commitments, merge, and production remain unchanged.
+- Local regression suite: 56 passed, 3 warnings; live /control smoke test returned HTTP 200.
+- Work branch: feature/live-control-panel; next gate is GitHub CI and human-approved merge.
+
+
+## 2026-09-13 Business autonomy pivot
+- Corrected the canonical goal: the product is an AI-operated company, not merely a GitHub coding pipeline.
+- Added CompanyBrain (CEO loop) that inspects incidents, approvals, active delivery, queue, invoices and pipeline and selects the next safe company action.
+- CEO decisions are persisted in company_cycles and exposed through /company and /company/tick.
+- Added provider-neutral OpportunityDiscovery ingestion for real public-feed/connector opportunities with URL validation; authenticated external accounts remain connector/API based, not unauthorized scraping.
+- Added CRM company pipeline/summary views.
+- Added lead_interactions foundation for future inbound/outbound conversation history.
+- Added CEO to live agent control roster.
+- Regression suite: 62 passed, 1 third-party deprecation warning.
+- Next focus: connect authorized real opportunity sources and customer communication channels, then make CompanyBrain schedule the full recurring business loop.
+
+## 2026-09-13 Recurring company action queue milestone
+- Added a durable company_actions queue for CompanyBrain decisions.
+- Each /company/tick now schedules the selected safe business action and returns its queue record.
+- Pending/running actions are deduplicated by action type, preventing recurring CEO ticks from flooding the queue.
+- /company now exposes queued company actions alongside the business snapshot and CRM pipeline.
+- No outbound message, commercial commitment, merge, deployment, or invoice send is executed automatically.
+- Regression suite: 63 passed, 1 third-party deprecation warning.
+- Work branch: feature/company-recurring-loop.
+- Next focus: add bounded action executors, beginning with configured public opportunity feeds and draft-only customer communication; keep authenticated services connector-based and owner-approved.

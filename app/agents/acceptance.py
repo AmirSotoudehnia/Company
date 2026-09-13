@@ -16,6 +16,12 @@ class AcceptanceReviewer:
 
     def review(self, root: Path, task: str, changed_files: list[str] | None = None) -> AcceptanceResult:
         text = task.lower()
+        if changed_files is not None:
+            if not changed_files:
+                return AcceptanceResult(False, "Acceptance failed: implementation produced no changed files.")
+            missing_files = [path for path in changed_files if not (root / path).exists()]
+            if missing_files:
+                return AcceptanceResult(False, "Acceptance failed: reported changed files are missing: " + ", ".join(missing_files))
         main = self._main_file(root)
         if main is None:
             return AcceptanceResult(True)
