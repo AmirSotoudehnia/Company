@@ -48,8 +48,10 @@ def test_qualified_opportunity_creates_draft_interaction():
 def test_company_worker_ingests_configured_local_feed(monkeypatch):
     import json
     from pathlib import Path
-    from app.company_worker import run_once
-    feed = Path("I:/Company/data/test_opportunities_feed.json")
+    import app.company_worker as company_worker
+    feed = Path.cwd() / "data" / "test_opportunities_feed.json"
+    feed.parent.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(company_worker, "COMPANY_ROOT", Path.cwd().resolve())
     feed.write_text(json.dumps([{"title": "Worker feed job", "brief": "Build a tested Python API and deployment pipeline", "source": "worker_test", "source_url": "https://example.com/worker-job", "budget": 25000}]), encoding="utf-8")
     monkeypatch.setenv("OPPORTUNITY_FEED_FILE", str(feed))
     with db() as c:
@@ -57,7 +59,7 @@ def test_company_worker_ingests_configured_local_feed(monkeypatch):
         c.execute("UPDATE sales_approvals SET status='rejected'")
         c.execute("UPDATE opportunities SET status='proposal_rejected' WHERE status='awaiting_human_approval'")
     try:
-        result = run_once()
+        result = company_worker.run_once()
         assert result["action"]["status"] == "completed"
         assert "ingested=1" in result["action"]["reason"]
     finally:
