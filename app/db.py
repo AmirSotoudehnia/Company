@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -116,7 +116,15 @@ def init_db():
             note TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(opportunity_id) REFERENCES opportunities(id) ON DELETE CASCADE
-        );        CREATE TABLE IF NOT EXISTS webhook_deliveries (
+        );        CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL DEFAULT '', company TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS engagements (id INTEGER PRIMARY KEY AUTOINCREMENT, opportunity_id INTEGER NOT NULL UNIQUE, customer_id INTEGER NOT NULL, project_id INTEGER, scope TEXT NOT NULL, acceptance_json TEXT NOT NULL DEFAULT '[]', budget REAL, deadline TEXT, status TEXT NOT NULL DEFAULT 'awaiting_scope_approval', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS milestones (id INTEGER PRIMARY KEY AUTOINCREMENT, engagement_id INTEGER NOT NULL, title TEXT NOT NULL, deliverable TEXT NOT NULL, due_date TEXT, status TEXT NOT NULL DEFAULT 'planned', FOREIGN KEY(engagement_id) REFERENCES engagements(id) ON DELETE CASCADE);
+        CREATE TABLE IF NOT EXISTS change_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, engagement_id INTEGER NOT NULL, description TEXT NOT NULL, budget_delta REAL NOT NULL DEFAULT 0, deadline_delta_days INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(engagement_id) REFERENCES engagements(id) ON DELETE CASCADE);
+        CREATE TABLE IF NOT EXISTS engagement_approvals (id INTEGER PRIMARY KEY AUTOINCREMENT, engagement_id INTEGER NOT NULL, kind TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(engagement_id) REFERENCES engagements(id) ON DELETE CASCADE);
+        CREATE TABLE IF NOT EXISTS communications (id INTEGER PRIMARY KEY AUTOINCREMENT, engagement_id INTEGER NOT NULL, kind TEXT NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'draft', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(engagement_id) REFERENCES engagements(id) ON DELETE CASCADE);
+        CREATE TABLE IF NOT EXISTS operational_checks (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, target TEXT NOT NULL, status TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS incidents (id INTEGER PRIMARY KEY AUTOINCREMENT, check_id INTEGER, severity TEXT NOT NULL, title TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS webhook_deliveries (
             delivery_id TEXT PRIMARY KEY,
             event TEXT NOT NULL,
             tenant_id INTEGER,

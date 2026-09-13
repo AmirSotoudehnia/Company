@@ -1,4 +1,4 @@
-﻿import json
+import json
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
@@ -9,9 +9,12 @@ from app.core.settings import settings
 from app.db import db, init_db
 from app.integrations.github import get_issue
 from app.integrations.webhooks import WebhookError, process_github_webhook, verify_signature
-from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, OpportunityCreate, SalesApprovalDecision
+from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, OpportunityCreate, SalesApprovalDecision, CustomerIntake, ChangeRequestCreate, OpsCheckCreate
 from app.orchestrator import Orchestrator
 from app.sales_pipeline import SalesPipeline
+from app.customer_ops import CustomerOps
+from app.communication_pipeline import CommunicationPipeline
+from app.operations import OperationsMonitor
 from app.platform.audit import audit, list_audit
 from app.platform.policy import RepositoryPolicy
 from app.platform.queue import enqueue_job, list_jobs
@@ -21,6 +24,9 @@ from app.security.tenant_auth import require_tenant
 app = FastAPI(title="Agent Company", version=APP_VERSION)
 orch = Orchestrator()
 sales = SalesPipeline()
+customer_ops = CustomerOps()
+communications = CommunicationPipeline()
+operations = OperationsMonitor()
 
 
 @app.on_event("startup")
@@ -213,3 +219,51 @@ def approve_sales(opportunity_id: int, approval_id: int, body: SalesApprovalDeci
         return sales.decide(opportunity_id, approval_id, body.approved, body.note)
     except ValueError as exc:
         raise HTTPException(404, str(exc))
+
+
+@app.post("/engagements")
+def create_engagement(body: CustomerIntake):
+    try:
+        milestones = [m.model_dump() for m in body.milestones]
+        return customer_ops.onboard(body.opportunity_id, body.customer_name, body.email, body.company, body.scope, body.acceptance_criteria, milestones, body.budget, body.deadline)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc))
+
+
+@app.get("/engagements/{engagement_id}")
+def get_engagement(engagement_id: int):
+    try: return customer_ops.get(engagement_id)
+    except ValueError as exc: raise HTTPException(404, str(exc))
+
+
+@app.post("/engagements/{engagement_id}/scope-approval/{approval_id}")
+def approve_scope(engagement_id: int, approval_id: int, body: ApprovalDecision):
+    try: return customer_ops.approve_scope(engagement_id, approval_id, body.approved, body.note)
+    except ValueError as exc: raise HTTPException(404, str(exc))
+
+
+@app.post("/engagements/{engagement_id}/changes")
+def create_change_request(engagement_id: int, body: ChangeRequestCreate):
+    try: return customer_ops.request_change(engagement_id, body.description, body.budget_delta, body.deadline_delta_days)
+    except ValueError as exc: raise HTTPException(404, str(exc))
+
+
+@app.post("/engagements/{engagement_id}/communications/status")
+def draft_customer_status(engagement_id: int):
+    try: return communications.draft_status(engagement_id)
+    except ValueError as exc: raise HTTPException(404, str(exc))
+
+
+@app.get("/engagements/{engagement_id}/communications")
+def list_customer_communications(engagement_id: int):
+    return communications.list(engagement_id)
+
+
+@app.post("/operations/checks")
+def record_operations_check(body: OpsCheckCreate):
+    return operations.record_check(body.name, body.target, body.healthy, body.detail)
+
+
+@app.get("/operations/dashboard")
+def operations_dashboard():
+    return operations.dashboard()

@@ -59,3 +59,34 @@ class OpportunityCreate(BaseModel):
 class SalesApprovalDecision(BaseModel):
     approved: bool
     note: str = ""
+
+
+class MilestoneInput(BaseModel):
+    title: str = Field(min_length=2, max_length=160)
+    deliverable: str = Field(min_length=2)
+    due_date: str | None = None
+
+
+class CustomerIntake(BaseModel):
+    opportunity_id: int = Field(gt=0)
+    customer_name: str = Field(min_length=2, max_length=160)
+    email: str = Field(default="", max_length=200)
+    company: str = Field(default="", max_length=160)
+    scope: str = Field(min_length=10)
+    acceptance_criteria: list[str] = Field(min_length=1)
+    milestones: list[MilestoneInput] = Field(min_length=1)
+    budget: float | None = Field(default=None, ge=0)
+    deadline: str | None = None
+
+
+class ChangeRequestCreate(BaseModel):
+    description: str = Field(min_length=5)
+    budget_delta: float = 0
+    deadline_delta_days: int = 0
+
+
+class OpsCheckCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=80)
+    target: str = Field(min_length=1, max_length=300)
+    healthy: bool
+    detail: str = Field(default="", max_length=1000)

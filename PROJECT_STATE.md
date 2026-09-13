@@ -107,3 +107,15 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Risky/low-fit opportunities remain not_ready and create no outbound approval action.
 - Local suite: 50 tests passing; C: remains above the 10 GB minimum.
 - Work branch: feature/opportunity-sales-pipeline; next gate is GitHub CI then human-approved merge.
+
+## 2026-09-12 Customer Operations milestone
+- PR #10 passed CI #45 and was squash-merged to main at f6fa0228319e4ed02bc79144b65fc53339bc2c0e.
+- Added Customer Intake: approved sales opportunities can become customer engagements.
+- Added scope, acceptance criteria, budget, deadline, milestones, and explicit scope-commitment approval.
+- Scope approval creates the executable project; unapproved scope cannot enter delivery workflow.
+- Added scope-creep protection through pending Change Requests with separate approval records.
+- Added CustomerCommunicationAgent and persistent draft communications; outbound sending is intentionally not automatic.
+- Added Monitoring + Operations health-check records, job summary dashboard, and automatic incident creation for unhealthy checks.
+- Operational monitoring records/escalates state but does not mutate/deploy production automatically.
+- Local suite: 54 tests passing; C: remains above the 10 GB minimum.
+- Work branch: feature/customer-ops-batch; next gate is GitHub CI then user-authorized merge.
