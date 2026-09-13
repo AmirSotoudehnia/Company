@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from app.db import db
 
 AGENTS = [
-    "opportunity", "sales", "project_manager", "architect", "developer",
+    "ceo", "opportunity", "sales", "project_manager", "architect", "developer",
     "coding", "qa", "bug_fix", "code_review", "security", "delivery",
     "customer_communication", "operations",
 ]

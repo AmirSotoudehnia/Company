@@ -25,6 +25,9 @@ from app.platform.tenancy import TenantError, create_tenant, register_installati
 from app.security.tenant_auth import require_tenant
 from app.security.operator_auth import require_operator
 from app.billing import create_invoice, list_invoices
+from app.company_brain import CompanyBrain
+from app.company_scheduler import CompanyActionQueue
+from app.crm import CRM
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -279,6 +282,14 @@ def operations_dashboard():
 def control_panel_page(_=Depends(require_operator)):
     return FileResponse("app/static/control.html")
 
+
+@app.get("/company")
+def company_dashboard(_: bool = Depends(require_operator)):
+    return {"brain": CompanyBrain().snapshot(), "actions": CompanyActionQueue().list(), "sales": CRM().summary(), "pipeline": CRM().pipeline()}
+
+@app.post("/company/tick")
+def company_tick(_: bool = Depends(require_operator)):
+    return CompanyBrain().tick()
 
 @app.get("/control/snapshot")
 def control_snapshot(_=Depends(require_operator)):
