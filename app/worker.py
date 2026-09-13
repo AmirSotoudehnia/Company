@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -7,6 +7,7 @@ import time
 
 from app.agents.coding import CodingAgent
 from app.db import db, init_db
+from app.control_panel import is_agent_paused, set_agent_activity
 from app.integrations.github import get_issue
 from app.integrations.github_app import provider as github_app_provider
 from app.platform.audit import audit
@@ -39,6 +40,9 @@ def process_job(job: dict) -> dict:
     task = (issue.get("body") or title).strip()
     branch = f"agent/job-{job['id']}-issue-{issue_number}"
 
+    if is_agent_paused("coding"):
+        raise RuntimeError("Coding agent is paused")
+    set_agent_activity("coding", "running", f"Coding GitHub issue #{issue_number}", job_id=job["id"])
     audit(job["tenant_id"], _worker_id(), "job.started", f"job:{job['id']}", repo["id"], {"issue_number": issue_number})
     agent = CodingAgent(repo["owner"], repo["name"], token=token, installation_id=installation_id)
     result = agent.run_autonomous(
@@ -55,6 +59,7 @@ def process_job(job: dict) -> dict:
     if not result.tests_passed:
         raise RuntimeError(result.test_output or "Tests failed")
     audit(job["tenant_id"], _worker_id(), "job.completed", f"job:{job['id']}", repo["id"], {"pull_request_url": result.pull_request_url, "attempts": result.attempts})
+    set_agent_activity("coding", "completed", f"Completed job #{job['id']}", job_id=job["id"])
     return result_dict
 
 

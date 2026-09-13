@@ -1,4 +1,5 @@
 from app.db import db
+from app.control_panel import is_agent_paused, set_agent_activity
 from app.agents.manager import ProjectManagerAgent
 from app.agents.architect import ArchitectAgent
 from app.agents.developer import DeveloperAgent
@@ -41,11 +42,20 @@ class Orchestrator:
             ])
 
     def _run_agent(self, project_id, agent):
-        result = agent.run(self._project(project_id), self._tasks(project_id))
-        self._event(project_id, agent.name, "completed", result.summary)
-        if result.next_status:
-            self._set_status(project_id, result.next_status)
-        return result
+        if is_agent_paused(agent.name):
+            set_agent_activity(agent.name, 'paused', 'Paused by operator', project_id)
+            raise RuntimeError(f'Agent {agent.name} is paused')
+        set_agent_activity(agent.name, 'running', f'Working on project #{project_id}', project_id)
+        try:
+            result = agent.run(self._project(project_id), self._tasks(project_id))
+            self._event(project_id, agent.name, 'completed', result.summary)
+            if result.next_status:
+                self._set_status(project_id, result.next_status)
+            set_agent_activity(agent.name, 'completed', result.summary, project_id)
+            return result
+        except Exception as exc:
+            set_agent_activity(agent.name, 'failed', str(exc), project_id)
+            raise
 
     def run(self, project_id):
         project = self._project(project_id)

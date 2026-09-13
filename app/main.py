@@ -1,6 +1,7 @@
-import json
+﻿import json
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse
 
 APP_VERSION = "0.5.0"
 
@@ -15,6 +16,7 @@ from app.sales_pipeline import SalesPipeline
 from app.customer_ops import CustomerOps
 from app.communication_pipeline import CommunicationPipeline
 from app.operations import OperationsMonitor
+from app.control_panel import control_job, dashboard_snapshot, set_agent_paused
 from app.platform.audit import audit, list_audit
 from app.platform.policy import RepositoryPolicy
 from app.platform.queue import enqueue_job, list_jobs
@@ -267,3 +269,32 @@ def record_operations_check(body: OpsCheckCreate):
 @app.get("/operations/dashboard")
 def operations_dashboard():
     return operations.dashboard()
+
+
+
+@app.get("/control")
+def control_panel_page():
+    return FileResponse("app/static/control.html")
+
+
+@app.get("/control/snapshot")
+def control_snapshot():
+    return dashboard_snapshot()
+
+
+@app.post("/control/agents/{agent}/{action}")
+def control_agent(agent: str, action: str):
+    if action not in ("pause", "resume"):
+        raise HTTPException(400, "Action must be pause or resume")
+    try:
+        return set_agent_paused(agent, action == "pause")
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
+@app.post("/control/jobs/{job_id}/{action}")
+def control_queued_job(job_id: int, action: str):
+    try:
+        return control_job(job_id, action)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
