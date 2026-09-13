@@ -129,3 +129,14 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Customer Intake + scope/milestones, Customer Communication, and Monitoring/Operations are now on main.
 - Human approval remains required before outbound customer commitments/messages and production-sensitive actions.
 - Multi-stack support remains intentionally deferred.
+
+## 2026-09-13 Live Control Panel milestone
+- Added a live web control panel at /control with automatic 2-second refresh.
+- Added persistent per-agent activity: idle/running/completed/failed/paused, current project/job, detail, and timestamp.
+- Orchestrated PM/Architect/Developer/QA/BugFix/Review/Security/Delivery activity is recorded live.
+- Background Coding Agent activity is recorded against queue job IDs.
+- Added operator Pause/Resume controls for agents and Retry/Cancel controls for queue jobs.
+- Dashboard includes projects, jobs/workers, pending approvals, and open incidents.
+- Human approval gates for customer commitments, merge, and production remain unchanged.
+- Local regression suite: 56 passed, 3 warnings; live /control smoke test returned HTTP 200.
+- Work branch: feature/live-control-panel; next gate is GitHub CI and human-approved merge.

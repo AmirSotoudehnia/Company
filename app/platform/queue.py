@@ -48,7 +48,7 @@ def claim_next_job(worker_id: str, lease_seconds: int = 900) -> dict | None:
 def complete_job(job_id: int, result: dict[str, Any]) -> None:
     with db() as conn:
         conn.execute(
-            "UPDATE jobs SET status='completed', result_json=?, lease_until=NULL, locked_by=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            "UPDATE jobs SET status='completed', result_json=?, lease_until=NULL, locked_by=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='running'",
             (json.dumps(result, ensure_ascii=False), job_id),
         )
 
@@ -71,3 +71,9 @@ def list_jobs(tenant_id: int, limit: int = 100) -> list[dict]:
     limit = max(1, min(limit, 500))
     with db() as conn:
         return [dict(r) for r in conn.execute("SELECT * FROM jobs WHERE tenant_id=? ORDER BY id DESC LIMIT ?", (tenant_id, limit))]
+
+
+def job_cancelled(job_id: int) -> bool:
+    with db() as conn:
+        row=conn.execute("SELECT status FROM jobs WHERE id=?",(job_id,)).fetchone()
+        return bool(row and row["status"] == "cancelled")

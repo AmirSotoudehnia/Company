@@ -1,6 +1,8 @@
 import json
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse
 
 APP_VERSION = "0.5.0"
 
@@ -9,29 +11,32 @@ from app.core.settings import settings
 from app.db import db, init_db
 from app.integrations.github import get_issue
 from app.integrations.webhooks import WebhookError, process_github_webhook, verify_signature
-from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, OpportunityCreate, SalesApprovalDecision, CustomerIntake, ChangeRequestCreate, OpsCheckCreate
+from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, OpportunityCreate, SalesApprovalDecision, CustomerIntake, ChangeRequestCreate, OpsCheckCreate, InvoiceCreate
 from app.orchestrator import Orchestrator
 from app.sales_pipeline import SalesPipeline
 from app.customer_ops import CustomerOps
 from app.communication_pipeline import CommunicationPipeline
 from app.operations import OperationsMonitor
+from app.control_panel import control_job, dashboard_snapshot, set_agent_paused
 from app.platform.audit import audit, list_audit
 from app.platform.policy import RepositoryPolicy
 from app.platform.queue import enqueue_job, list_jobs
 from app.platform.tenancy import TenantError, create_tenant, register_installation, register_repository
 from app.security.tenant_auth import require_tenant
+from app.security.operator_auth import require_operator
+from app.billing import create_invoice, list_invoices
 
-app = FastAPI(title="Agent Company", version=APP_VERSION)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+app = FastAPI(title="Agent Company", version=APP_VERSION, lifespan=lifespan)
 orch = Orchestrator()
 sales = SalesPipeline()
 customer_ops = CustomerOps()
 communications = CommunicationPipeline()
 operations = OperationsMonitor()
-
-
-@app.on_event("startup")
-def startup():
-    init_db()
 
 
 @app.get("/version")
@@ -267,3 +272,42 @@ def record_operations_check(body: OpsCheckCreate):
 @app.get("/operations/dashboard")
 def operations_dashboard():
     return operations.dashboard()
+
+
+
+@app.get("/control")
+def control_panel_page(_=Depends(require_operator)):
+    return FileResponse("app/static/control.html")
+
+
+@app.get("/control/snapshot")
+def control_snapshot(_=Depends(require_operator)):
+    return dashboard_snapshot()
+
+
+@app.post("/control/agents/{agent}/{action}")
+def control_agent(agent: str, action: str, _=Depends(require_operator)):
+    if action not in ("pause", "resume"):
+        raise HTTPException(400, "Action must be pause or resume")
+    try:
+        return set_agent_paused(agent, action == "pause")
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
+@app.post("/control/jobs/{job_id}/{action}")
+def control_queued_job(job_id: int, action: str, _=Depends(require_operator)):
+    try:
+        return control_job(job_id, action)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/billing/invoices")
+def billing_create_invoice(body: InvoiceCreate, _=Depends(require_operator)):
+    try: return create_invoice(body.engagement_id, body.amount, body.currency, body.due_date, body.note)
+    except ValueError as exc: raise HTTPException(404, str(exc))
+
+@app.get("/billing/invoices")
+def billing_list_invoices(engagement_id: int | None = None, _=Depends(require_operator)):
+    return list_invoices(engagement_id)

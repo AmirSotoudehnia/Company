@@ -7,11 +7,12 @@ import time
 
 from app.agents.coding import CodingAgent
 from app.db import db, init_db
+from app.control_panel import is_agent_paused, set_agent_activity
 from app.integrations.github import get_issue
 from app.integrations.github_app import provider as github_app_provider
 from app.platform.audit import audit
 from app.platform.policy import RepositoryPolicy
-from app.platform.queue import claim_next_job, complete_job, fail_job
+from app.platform.queue import claim_next_job, complete_job, fail_job, job_cancelled
 
 
 def _worker_id() -> str:
@@ -39,6 +40,9 @@ def process_job(job: dict) -> dict:
     task = (issue.get("body") or title).strip()
     branch = f"agent/job-{job['id']}-issue-{issue_number}"
 
+    if is_agent_paused("coding"):
+        raise RuntimeError("Coding agent is paused")
+    set_agent_activity("coding", "running", f"Coding GitHub issue #{issue_number}", job_id=job["id"])
     audit(job["tenant_id"], _worker_id(), "job.started", f"job:{job['id']}", repo["id"], {"issue_number": issue_number})
     agent = CodingAgent(repo["owner"], repo["name"], token=token, installation_id=installation_id)
     result = agent.run_autonomous(
@@ -55,6 +59,7 @@ def process_job(job: dict) -> dict:
     if not result.tests_passed:
         raise RuntimeError(result.test_output or "Tests failed")
     audit(job["tenant_id"], _worker_id(), "job.completed", f"job:{job['id']}", repo["id"], {"pull_request_url": result.pull_request_url, "attempts": result.attempts})
+    set_agent_activity("coding", "completed", f"Completed job #{job['id']}", job_id=job["id"])
     return result_dict
 
 
@@ -67,8 +72,14 @@ def run_forever(poll_seconds: float = 2.0) -> None:
             time.sleep(poll_seconds)
             continue
         try:
-            complete_job(job["id"], process_job(job))
+            result = process_job(job)
+            if not job_cancelled(job["id"]):
+                complete_job(job["id"], result)
         except Exception as exc:
+            if job_cancelled(job["id"]):
+                set_agent_activity("coding", "cancelled", f"Cancelled job #{job['id']}", job_id=job["id"])
+                continue
+            set_agent_activity("coding", "failed", str(exc), job_id=job["id"])
             audit(job["tenant_id"], worker, "job.failed", f"job:{job['id']}", job["repository_id"], {"error": str(exc)[:2000]})
             fail_job(job["id"], str(exc))
 
