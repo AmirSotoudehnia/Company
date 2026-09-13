@@ -119,3 +119,13 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Operational monitoring records/escalates state but does not mutate/deploy production automatically.
 - Local suite: 54 tests passing; C: remains above the 10 GB minimum.
 - Work branch: feature/customer-ops-batch; next gate is GitHub CI then user-authorized merge.
+
+## 2026-09-13 Customer Operations finalization
+- PR #11 passed GitHub CI #47 and was merged into main.
+- Merge SHA: a4133ffaee1c0d5800465c226a6e40fd9a90bc11.
+- Local I:\Company was synchronized to origin/main at a4133ff.
+- Post-merge local regression suite: 54 passed, 3 deprecation warnings.
+- C drive free space after finalization: 14.69 GB (minimum requirement remains >=10 GB).
+- Customer Intake + scope/milestones, Customer Communication, and Monitoring/Operations are now on main.
+- Human approval remains required before outbound customer commitments/messages and production-sensitive actions.
+- Multi-stack support remains intentionally deferred.
