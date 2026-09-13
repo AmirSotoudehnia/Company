@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -125,6 +125,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS agent_activity (agent TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'idle', detail TEXT NOT NULL DEFAULT '', project_id INTEGER, job_id INTEGER, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
         CREATE TABLE IF NOT EXISTS agent_controls (agent TEXT PRIMARY KEY, paused INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);        CREATE TABLE IF NOT EXISTS operational_checks (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, target TEXT NOT NULL, status TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
         CREATE TABLE IF NOT EXISTS incidents (id INTEGER PRIMARY KEY AUTOINCREMENT, check_id INTEGER, severity TEXT NOT NULL, title TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS invoices (id INTEGER PRIMARY KEY AUTOINCREMENT, engagement_id INTEGER NOT NULL, number TEXT NOT NULL UNIQUE, currency TEXT NOT NULL DEFAULT 'SEK', amount REAL NOT NULL, status TEXT NOT NULL DEFAULT 'draft', due_date TEXT, note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(engagement_id) REFERENCES engagements(id) ON DELETE CASCADE);
+        CREATE INDEX IF NOT EXISTS idx_invoices_engagement ON invoices(engagement_id,id DESC);
         CREATE TABLE IF NOT EXISTS webhook_deliveries (
             delivery_id TEXT PRIMARY KEY,
             event TEXT NOT NULL,

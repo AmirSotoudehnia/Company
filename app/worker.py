@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import os
@@ -12,7 +12,7 @@ from app.integrations.github import get_issue
 from app.integrations.github_app import provider as github_app_provider
 from app.platform.audit import audit
 from app.platform.policy import RepositoryPolicy
-from app.platform.queue import claim_next_job, complete_job, fail_job
+from app.platform.queue import claim_next_job, complete_job, fail_job, job_cancelled
 
 
 def _worker_id() -> str:
@@ -72,8 +72,14 @@ def run_forever(poll_seconds: float = 2.0) -> None:
             time.sleep(poll_seconds)
             continue
         try:
-            complete_job(job["id"], process_job(job))
+            result = process_job(job)
+            if not job_cancelled(job["id"]):
+                complete_job(job["id"], result)
         except Exception as exc:
+            if job_cancelled(job["id"]):
+                set_agent_activity("coding", "cancelled", f"Cancelled job #{job['id']}", job_id=job["id"])
+                continue
+            set_agent_activity("coding", "failed", str(exc), job_id=job["id"])
             audit(job["tenant_id"], worker, "job.failed", f"job:{job['id']}", job["repository_id"], {"error": str(exc)[:2000]})
             fail_job(job["id"], str(exc))
 
