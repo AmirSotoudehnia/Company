@@ -162,3 +162,15 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Regression suite: 63 passed, 1 third-party deprecation warning.
 - Work branch: feature/company-recurring-loop.
 - Next focus: add bounded action executors, beginning with configured public opportunity feeds and draft-only customer communication; keep authenticated services connector-based and owner-approved.
+
+## 2026-09-13 Safe company action execution milestone
+- Added company_worker with a bounded recurring CEO loop and durable action claiming/completion.
+- Configured local JSON opportunity feeds are ingested from inside I:\Company only.
+- Opportunity source URLs are validated and duplicate source records are skipped.
+- Qualified opportunities create outbound proposal interactions in draft status only.
+- Human-dependent actions stop in waiting_human; no message, contract, invoice, merge, or deployment is sent automatically.
+- Added /company/run-once and operator-protected lead-interaction inspection.
+- Added Windows company-loop runner/startup task definitions and a safe example feed.
+- Regression suite: 66 passed, 1 third-party deprecation warning.
+- Work branch: feature/company-action-execution.
+- External authenticated connectors still require real service selection, authorization, and credentials from the owner.

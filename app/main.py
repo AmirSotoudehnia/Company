@@ -27,6 +27,7 @@ from app.security.operator_auth import require_operator
 from app.billing import create_invoice, list_invoices
 from app.company_brain import CompanyBrain
 from app.company_scheduler import CompanyActionQueue
+from app.company_worker import run_once as run_company_once
 from app.crm import CRM
 
 @asynccontextmanager
@@ -221,6 +222,14 @@ def get_opportunity(opportunity_id: int):
         raise HTTPException(404, str(exc))
 
 
+@app.get("/opportunities/{opportunity_id}/interactions")
+def list_lead_interactions(opportunity_id: int, _: bool = Depends(require_operator)):
+    try:
+        return sales.interactions(opportunity_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
 @app.post("/opportunities/{opportunity_id}/approve/{approval_id}")
 def approve_sales(opportunity_id: int, approval_id: int, body: SalesApprovalDecision):
     try:
@@ -290,6 +299,10 @@ def company_dashboard(_: bool = Depends(require_operator)):
 @app.post("/company/tick")
 def company_tick(_: bool = Depends(require_operator)):
     return CompanyBrain().tick()
+
+@app.post("/company/run-once")
+def company_run_once(_: bool = Depends(require_operator)):
+    return run_company_once()
 
 @app.get("/control/snapshot")
 def control_snapshot(_=Depends(require_operator)):

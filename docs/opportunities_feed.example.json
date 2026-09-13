@@ -1,0 +1,9 @@
+[
+  {
+    "title": "Example Flutter application",
+    "brief": "Build and test a Flutter application with an API integration.",
+    "source": "authorized_public_feed",
+    "source_url": "https://example.com/opportunities/1",
+    "budget": 10000
+  }
+]

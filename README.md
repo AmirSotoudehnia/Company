@@ -152,3 +152,20 @@ Legacy single-repository `/github/code` remains available for local development.
 ## What remains external to the codebase
 
 Before public commercial launch, infrastructure/account work still has to be done outside GitHub code: create the actual GitHub App in GitHub settings, configure its callback/webhook URL and permissions, provision HTTPS hosting/database/backups, configure the model provider and secrets, and establish billing/legal/monitoring. Those require real service accounts, domains and credentials and cannot be safely fabricated by the repository itself.
+
+## AI company loop
+
+`python -m app.company_worker` runs the bounded recurring company loop. Each cycle asks CompanyBrain for the next action, stores it in the durable company action queue, and executes only locally safe actions.
+
+Opportunity discovery reads an operator-controlled JSON feed from `OPPORTUNITY_FEED_FILE`. Copy `docs/opportunities_feed.example.json` to `data/opportunities_feed.json` and populate it through an authorized public feed or connector. The importer accepts only HTTP(S) source URLs and deduplicates source records.
+
+Qualified sales opportunities create proposal records and outbound lead interactions in `draft` status. Actions involving customer contact, commercial terms, incident resolution, invoices, merge, or production remain in `waiting_human` until an operator approves and configures the relevant connector.
+
+Operator endpoints:
+
+- `POST /company/tick` — decide and enqueue only.
+- `POST /company/run-once` — decide, enqueue, and execute one safe action.
+- `GET /company` — company snapshot, queue, CRM summary, and pipeline.
+- `GET /opportunities/{id}/interactions` — inspect draft lead communication.
+
+On Windows, `scripts/install_windows_startup.ps1` installs separate API, coding-worker, and company-loop tasks. Do not place credentials in the opportunity feed or commit `.env.local`.

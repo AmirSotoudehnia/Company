@@ -18,6 +18,7 @@ class SalesPipeline:
             opportunity_id = cur.lastrowid
             if proposal.status == "awaiting_human_approval":
                 conn.execute("INSERT INTO sales_approvals(opportunity_id) VALUES(?)", (opportunity_id,))
+                conn.execute("INSERT INTO lead_interactions(opportunity_id,direction,channel,subject,body,status) VALUES(?,?,?,?,?,?)", (opportunity_id, "outbound", "draft", f"Proposal: {title}", proposal.proposal, "draft"))
         return self.get(opportunity_id)
 
     def get(self, opportunity_id: int):
@@ -33,6 +34,12 @@ class SalesPipeline:
     def list(self):
         with db() as conn:
             return [dict(r) for r in conn.execute("SELECT id,title,source,budget,score,status,created_at FROM opportunities ORDER BY id DESC")]
+
+    def interactions(self, opportunity_id: int):
+        with db() as conn:
+            if not conn.execute("SELECT 1 FROM opportunities WHERE id=?", (opportunity_id,)).fetchone():
+                raise ValueError("Opportunity not found")
+            return [dict(r) for r in conn.execute("SELECT * FROM lead_interactions WHERE opportunity_id=? ORDER BY id DESC", (opportunity_id,))]
 
     def decide(self, opportunity_id: int, approval_id: int, approved: bool, note: str = ""):
         with db() as conn:

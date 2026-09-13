@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from urllib.parse import urlparse
+from app.db import db
 from app.sales_pipeline import SalesPipeline
 
 @dataclass(frozen=True)
@@ -21,6 +22,13 @@ class OpportunityDiscovery:
                 u=urlparse(item.source_url)
                 if u.scheme not in {"http","https"} or not u.netloc:
                     continue
+            with db() as conn:
+                if item.source_url:
+                    duplicate = conn.execute("SELECT 1 FROM opportunities WHERE source=? AND source_url=?", (item.source, item.source_url)).fetchone()
+                else:
+                    duplicate = conn.execute("SELECT 1 FROM opportunities WHERE source=? AND title=?", (item.source, item.title)).fetchone()
+            if duplicate:
+                continue
             results.append(SalesPipeline().create(item.title,item.brief,item.source,item.source_url,item.budget))
         return results
 
