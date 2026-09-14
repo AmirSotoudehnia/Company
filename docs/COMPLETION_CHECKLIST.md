@@ -24,7 +24,7 @@ Canonical local root: I:\Company
 - Immutable draft-invoice approval/rejection lifecycle (not an official tax invoice).
 - Build profile registry for Python, Node/TypeScript, Flutter, .NET and Kotlin.
 - Baseline browser security headers and end-to-end safety regression tests.
-- Panel-driven JobTech search plus local-business website-verification leads from public OpenStreetMap data.
+- Panel-driven JobTech and local-business lead search with durable progress, errors and visible result tables.
 
 ## Deferred expansion work (not required for the selected local-only profile)
 

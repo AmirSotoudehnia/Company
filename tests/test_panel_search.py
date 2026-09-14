@@ -54,3 +54,25 @@ def test_local_business_result_is_verification_lead():
     assert item.source == "openstreetmap_missing_website"
     assert "Verify independently" in item.brief
     assert item.source_url.endswith("/node/42")
+
+
+def test_search_run_and_results_are_visible(monkeypatch):
+    import app.company_worker as worker
+    from app.opportunity_discovery import DiscoveredOpportunity
+    from app.control_panel import dashboard_snapshot
+
+    class FakeConnector:
+        def search(self, query, limit):
+            return [DiscoveredOpportunity(
+                title="Visible result",
+                brief="A sufficiently detailed verified test opportunity",
+                source="test_source",
+                source_url="https://example.com/result-1",
+            )]
+
+    monkeypatch.setattr(worker, "JobTechConnector", FakeConnector)
+    result = worker.search_now("developer", 5, "job_ads")
+    snapshot = dashboard_snapshot()
+    assert result["status"] == "completed"
+    assert snapshot["search_runs"][0]["status"] == "completed"
+    assert snapshot["opportunities"][0]["title"] == "Visible result"
