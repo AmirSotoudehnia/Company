@@ -11,7 +11,7 @@ class CompanyActionQueue:
     def schedule(self, action: str, reason: str, payload: dict | None = None):
         with db() as conn:
             existing = conn.execute(
-                "SELECT * FROM company_actions WHERE action=? AND status IN ('pending','running') ORDER BY id DESC LIMIT 1",
+                "SELECT * FROM company_actions WHERE action=? AND status IN ('pending','running','waiting_human') ORDER BY id DESC LIMIT 1",
                 (action,),
             ).fetchone()
             if existing:
@@ -21,6 +21,21 @@ class CompanyActionQueue:
                 (action, reason, json.dumps(payload or {})),
             )
             return dict(conn.execute("SELECT * FROM company_actions WHERE id=?", (cur.lastrowid,)).fetchone())
+
+    def claim(self):
+        with db() as conn:
+            row = conn.execute("SELECT * FROM company_actions WHERE status='pending' ORDER BY id LIMIT 1").fetchone()
+            if not row:
+                return None
+            conn.execute("UPDATE company_actions SET status='running',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'", (row["id"],))
+            return dict(conn.execute("SELECT * FROM company_actions WHERE id=?", (row["id"],)).fetchone())
+
+    def finish(self, action_id: int, status: str, detail: str = ""):
+        if status not in {"completed", "failed", "waiting_human"}:
+            raise ValueError("Invalid company action status")
+        with db() as conn:
+            conn.execute("UPDATE company_actions SET status=?,reason=reason || ?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (status, f" | {detail}" if detail else "", action_id))
+            return dict(conn.execute("SELECT * FROM company_actions WHERE id=?", (action_id,)).fetchone())
 
     def list(self, limit: int = 50):
         with db() as conn:

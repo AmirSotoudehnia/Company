@@ -26,3 +26,41 @@ def test_ceo_schedules_deduplicated_company_action():
         actions = c.execute("SELECT action,status FROM company_actions WHERE action=?", (expected_action,)).fetchall()
     assert len(actions) == 1
     assert tuple(actions[0]) == (expected_action, "pending")
+
+def test_discovery_deduplicates_source_url():
+    item = DiscoveredOpportunity("Unique feed job", "A long enough software delivery brief with tests", "feed", "https://example.com/unique", 5000)
+    first = OpportunityDiscovery().ingest([item])
+    second = OpportunityDiscovery().ingest([item])
+    assert len(first) == 1
+    assert second == []
+
+
+def test_qualified_opportunity_creates_draft_interaction():
+    from app.sales_pipeline import SalesPipeline
+    item = SalesPipeline().create("Large Flutter project", "Build a complete Flutter product with API, tests, deployment and maintenance", "manual", "", 100000)
+    if item["status"] == "awaiting_human_approval":
+        interactions = SalesPipeline().interactions(item["id"])
+        assert len(interactions) == 1
+        assert interactions[0]["status"] == "draft"
+        assert interactions[0]["direction"] == "outbound"
+
+
+def test_company_worker_ingests_configured_local_feed(monkeypatch):
+    import json
+    from pathlib import Path
+    import app.company_worker as company_worker
+    feed = Path.cwd() / "data" / "test_opportunities_feed.json"
+    feed.parent.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(company_worker, "COMPANY_ROOT", Path.cwd().resolve())
+    feed.write_text(json.dumps([{"title": "Worker feed job", "brief": "Build a tested Python API and deployment pipeline", "source": "worker_test", "source_url": "https://example.com/worker-job", "budget": 25000}]), encoding="utf-8")
+    monkeypatch.setenv("OPPORTUNITY_FEED_FILE", str(feed))
+    with db() as c:
+        c.execute("UPDATE company_actions SET status='completed'")
+        c.execute("UPDATE sales_approvals SET status='rejected'")
+        c.execute("UPDATE opportunities SET status='proposal_rejected' WHERE status='awaiting_human_approval'")
+    try:
+        result = company_worker.run_once()
+        assert result["action"]["status"] == "completed"
+        assert "ingested=1" in result["action"]["reason"]
+    finally:
+        feed.unlink(missing_ok=True)
