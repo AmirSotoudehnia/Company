@@ -61,8 +61,11 @@ def dashboard_snapshot():
         controls = {r["agent"]: bool(r["paused"]) for r in conn.execute("SELECT * FROM agent_controls")}
         jobs = [dict(r) for r in conn.execute("SELECT id,kind,status,attempts,max_attempts,locked_by,last_error,updated_at FROM jobs ORDER BY id DESC LIMIT 30")]
         projects = [dict(r) for r in conn.execute("SELECT id,name,status,created_at FROM projects ORDER BY id DESC LIMIT 20")]
-        approvals = [dict(r) for r in conn.execute("SELECT id,project_id,kind,status,created_at FROM approvals WHERE status='pending' ORDER BY id DESC")]
-        approvals += [dict(r) for r in conn.execute("SELECT id,opportunity_id AS project_id,kind,status,created_at FROM sales_approvals WHERE status='pending' ORDER BY id DESC")]
+        approvals = [dict(r) for r in conn.execute("SELECT id,project_id,kind,status,created_at,'project' AS category FROM approvals WHERE status='pending' ORDER BY id DESC")]
+        approvals += [dict(r) for r in conn.execute("SELECT id,opportunity_id AS project_id,kind,status,created_at,'sales' AS category FROM sales_approvals WHERE status='pending' ORDER BY id DESC")]
+        approvals += [dict(r) for r in conn.execute("SELECT id,engagement_id AS project_id,kind,status,created_at,'engagement' AS category FROM engagement_approvals WHERE status='pending' ORDER BY id DESC")]
+        outbox = [dict(r) for r in conn.execute("SELECT id,opportunity_id,interaction_id,provider,status,created_at FROM outbox_approvals WHERE status='pending' ORDER BY id DESC")]
+        invoices = [dict(r) for r in conn.execute("SELECT id,engagement_id,number,currency,amount,status,due_date FROM invoices ORDER BY id DESC LIMIT 20")]
         incidents = [dict(r) for r in conn.execute("SELECT * FROM incidents WHERE status='open' ORDER BY id DESC LIMIT 20")]
         events = [dict(r) for r in conn.execute("SELECT * FROM events ORDER BY id DESC LIMIT 30")]
     agents = []
@@ -73,4 +76,4 @@ def dashboard_snapshot():
             item["status"] = "paused"
         agents.append(item)
     return {"generated_at": datetime.now(timezone.utc).isoformat(), "agents": agents, "jobs": jobs,
-            "projects": projects, "pending_approvals": approvals, "incidents": incidents, "events": events}
+            "projects": projects, "pending_approvals": approvals, "outbox": outbox, "invoices": invoices, "incidents": incidents, "events": events}

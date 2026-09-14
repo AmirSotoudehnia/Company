@@ -11,7 +11,7 @@ from app.core.settings import settings
 from app.db import db, init_db
 from app.integrations.github import get_issue
 from app.integrations.webhooks import WebhookError, process_github_webhook, verify_signature
-from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, OpportunityCreate, SalesApprovalDecision, LeadInteractionCreate, CustomerIntake, ChangeRequestCreate, OpsCheckCreate, InvoiceCreate
+from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, TenantKeyCreate, OpportunityCreate, SalesApprovalDecision, LeadInteractionCreate, CustomerIntake, ChangeRequestCreate, OpsCheckCreate, InvoiceCreate
 from app.orchestrator import Orchestrator
 from app.sales_pipeline import SalesPipeline
 from app.customer_ops import CustomerOps
@@ -21,14 +21,16 @@ from app.control_panel import control_job, dashboard_snapshot, set_agent_paused
 from app.platform.audit import audit, list_audit
 from app.platform.policy import RepositoryPolicy
 from app.platform.queue import enqueue_job, list_jobs
-from app.platform.tenancy import TenantError, create_tenant, register_installation, register_repository
+from app.platform.tenancy import TenantError, create_tenant, issue_api_key, list_api_keys, revoke_api_key, register_installation, register_repository
 from app.security.tenant_auth import require_tenant
 from app.security.operator_auth import require_operator
-from app.billing import create_invoice, list_invoices
+from app.billing import create_invoice, decide_invoice, list_invoices
 from app.company_brain import CompanyBrain
 from app.company_scheduler import CompanyActionQueue
 from app.company_worker import run_once as run_company_once
 from app.crm import CRM
+from app.company_profile import current_profile
+from app.outbox import decide as decide_outbox, list_pending as list_pending_outbox
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -48,9 +50,24 @@ def version():
     return {"version": APP_VERSION}
 
 
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+    return response
+
+
 @app.get("/health")
 def health():
-    return {"ok": True, "version": APP_VERSION}
+    return {"ok": True, "version": APP_VERSION, "profile": current_profile().to_dict()}
+
+
+@app.get("/company/profile")
+def company_profile(_: bool = Depends(require_operator)):
+    return current_profile().to_dict()
 
 
 @app.post("/tenants/bootstrap")
@@ -72,6 +89,28 @@ def bootstrap_tenant(body: TenantBootstrap, x_bootstrap_token: str = Header(defa
 @app.get("/tenant")
 def tenant_info(tenant=Depends(require_tenant)):
     return tenant
+
+
+@app.get("/tenant/keys")
+def tenant_keys(tenant=Depends(require_tenant)):
+    return list_api_keys(tenant["id"])
+
+
+@app.post("/tenant/keys")
+def tenant_key_create(body: TenantKeyCreate, tenant=Depends(require_tenant)):
+    meta, raw_key = issue_api_key(tenant["id"], body.label)
+    audit(tenant["id"], "tenant-api", "key.created", f"tenant-key:{meta['id']}")
+    return {"key": meta, "api_key": raw_key, "warning": "This API key is shown only once."}
+
+
+@app.delete("/tenant/keys/{key_id}")
+def tenant_key_revoke(key_id: int, tenant=Depends(require_tenant)):
+    try:
+        result = revoke_api_key(tenant["id"], key_id)
+        audit(tenant["id"], "tenant-api", "key.revoked", f"tenant-key:{key_id}")
+        return result
+    except TenantError as exc:
+        raise HTTPException(409, str(exc))
 
 
 @app.post("/tenant/installations")
@@ -166,7 +205,7 @@ def run_project(project_id: int):
 
 
 @app.post("/projects/{project_id}/approve/{approval_id}")
-def decide_approval(project_id: int, approval_id: int, body: ApprovalDecision):
+def decide_approval(project_id: int, approval_id: int, body: ApprovalDecision, _: bool = Depends(require_operator)):
     with db() as conn:
         ap = conn.execute("SELECT * FROM approvals WHERE id=? AND project_id=?", (approval_id, project_id)).fetchone()
         if not ap:
@@ -239,7 +278,7 @@ def list_lead_interactions(opportunity_id: int, _: bool = Depends(require_operat
 
 
 @app.post("/opportunities/{opportunity_id}/approve/{approval_id}")
-def approve_sales(opportunity_id: int, approval_id: int, body: SalesApprovalDecision):
+def approve_sales(opportunity_id: int, approval_id: int, body: SalesApprovalDecision, _: bool = Depends(require_operator)):
     try:
         return sales.decide(opportunity_id, approval_id, body.approved, body.note)
     except ValueError as exc:
@@ -262,7 +301,7 @@ def get_engagement(engagement_id: int):
 
 
 @app.post("/engagements/{engagement_id}/scope-approval/{approval_id}")
-def approve_scope(engagement_id: int, approval_id: int, body: ApprovalDecision):
+def approve_scope(engagement_id: int, approval_id: int, body: ApprovalDecision, _: bool = Depends(require_operator)):
     try: return customer_ops.approve_scope(engagement_id, approval_id, body.approved, body.note)
     except ValueError as exc: raise HTTPException(404, str(exc))
 
@@ -317,6 +356,19 @@ def control_snapshot(_=Depends(require_operator)):
     return dashboard_snapshot()
 
 
+@app.get("/control/outbox")
+def control_outbox(_=Depends(require_operator)):
+    return list_pending_outbox()
+
+
+@app.post("/control/outbox/{approval_id}/decision")
+def control_outbox_decision(approval_id: int, body: ApprovalDecision, _=Depends(require_operator)):
+    try:
+        return decide_outbox(approval_id, body.approved, body.note)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc))
+
+
 @app.post("/control/agents/{agent}/{action}")
 def control_agent(agent: str, action: str, _=Depends(require_operator)):
     if action not in ("pause", "resume"):
@@ -339,6 +391,11 @@ def control_queued_job(job_id: int, action: str, _=Depends(require_operator)):
 def billing_create_invoice(body: InvoiceCreate, _=Depends(require_operator)):
     try: return create_invoice(body.engagement_id, body.amount, body.currency, body.due_date, body.note)
     except ValueError as exc: raise HTTPException(404, str(exc))
+
+@app.post("/billing/invoices/{invoice_id}/decision")
+def billing_decide_invoice(invoice_id: int, body: ApprovalDecision, _=Depends(require_operator)):
+    try: return decide_invoice(invoice_id, body.approved, body.note)
+    except ValueError as exc: raise HTTPException(409, str(exc))
 
 @app.get("/billing/invoices")
 def billing_list_invoices(engagement_id: int | None = None, _=Depends(require_operator)):
