@@ -185,3 +185,9 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Regression suite: 68 passed, 1 third-party deprecation warning.
 - Work branch: feature/real-opportunity-connectors.
 - Remaining external step: authorize a real Gmail account/connector before draft synchronization can be activated.
+
+## 2026-09-14 Completion checkpoint
+- Added docs/COMPLETION_CHECKLIST.md as the canonical remaining-work and external-blocker checklist.
+- Future work must read PROJECT_STATE.md and the completion checklist before editing.
+- GitHub operations are authorized for this repository; production, outbound commercial actions and spending remain separately gated.
+- Gmail is installed in ChatGPT, but the local service still needs an OAuth/provider boundary or ChatGPT-based orchestration decision.
