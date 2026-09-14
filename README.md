@@ -169,3 +169,19 @@ Operator endpoints:
 - `GET /opportunities/{id}/interactions` — inspect draft lead communication.
 
 On Windows, `scripts/install_windows_startup.ps1` installs separate API, coding-worker, and company-loop tasks. Do not place credentials in the opportunity feed or commit `.env.local`.
+
+## Real opportunity and communication connectors
+
+Set `JOBTECH_ENABLED=true` to use Arbetsförmedlingen's official public JobTech JobSearch endpoint. `JOBTECH_QUERY` controls the search phrase and `JOBTECH_LIMIT` is capped by the connector. Results enter the same scoring, deduplication, proposal-draft, and human-approval pipeline as manual opportunities.
+
+Other supported ingress paths are the existing manual `POST /opportunities` endpoint and authorized GitHub issue/webhook integration. No authenticated page scraping is performed.
+
+`POST /opportunities/{id}/interactions` records Gmail, contact-form, manual, or draft channel events. Outbound records are always forced to `draft`; inbound records become `received`. A future authenticated Gmail adapter may create or synchronize drafts, but it must never bypass owner approval.
+
+## Real opportunity and communication connectors
+
+Set `JOBTECH_ENABLED=true` to use Arbetsförmedlingen's official public JobTech JobSearch endpoint. `JOBTECH_QUERY` controls the search phrase and `JOBTECH_LIMIT` is capped by the connector. Results enter the same scoring, deduplication, proposal-draft, and human-approval pipeline as manual opportunities.
+
+Other supported ingress paths are the existing manual `POST /opportunities` endpoint and authorized GitHub issue/webhook integration. No authenticated page scraping is performed.
+
+`POST /opportunities/{id}/interactions` records Gmail, contact-form, manual, or draft channel events. Outbound records are always forced to `draft`; inbound records become `received`. A future authenticated Gmail adapter may create or synchronize drafts, but it must never bypass owner approval.

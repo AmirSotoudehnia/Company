@@ -35,6 +35,14 @@ class SalesPipeline:
         with db() as conn:
             return [dict(r) for r in conn.execute("SELECT id,title,source,budget,score,status,created_at FROM opportunities ORDER BY id DESC")]
 
+    def add_interaction(self, opportunity_id: int, direction: str, channel: str, subject: str, body: str):
+        with db() as conn:
+            if not conn.execute("SELECT 1 FROM opportunities WHERE id=?", (opportunity_id,)).fetchone():
+                raise ValueError("Opportunity not found")
+            status = "received" if direction == "inbound" else "draft"
+            cur = conn.execute("INSERT INTO lead_interactions(opportunity_id,direction,channel,subject,body,status) VALUES(?,?,?,?,?,?)", (opportunity_id,direction,channel,subject,body,status))
+            return dict(conn.execute("SELECT * FROM lead_interactions WHERE id=?", (cur.lastrowid,)).fetchone())
+
     def interactions(self, opportunity_id: int):
         with db() as conn:
             if not conn.execute("SELECT 1 FROM opportunities WHERE id=?", (opportunity_id,)).fetchone():

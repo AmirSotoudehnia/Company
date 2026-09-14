@@ -8,6 +8,7 @@ from pathlib import Path
 from app.company_brain import CompanyBrain
 from app.company_scheduler import CompanyActionQueue
 from app.db import init_db
+from app.integrations.jobtech import JobTechConnector
 from app.opportunity_discovery import DiscoveredOpportunity, OpportunityDiscovery
 
 COMPANY_ROOT = Path(os.getenv("COMPANY_ROOT", r"I:\Company")).resolve()
@@ -22,22 +23,25 @@ def _feed_path() -> Path:
 
 
 def _discover() -> int:
+    items = []
     path = _feed_path()
-    if not path.exists():
-        raise FileNotFoundError(f"Configure opportunity feed: {path}")
-    raw = json.loads(path.read_text(encoding="utf-8-sig"))
-    if not isinstance(raw, list):
-        raise ValueError("Opportunity feed must be a JSON array")
-    items = [
-        DiscoveredOpportunity(
+    if path.exists():
+        raw = json.loads(path.read_text(encoding="utf-8-sig"))
+        if not isinstance(raw, list):
+            raise ValueError("Opportunity feed must be a JSON array")
+        items.extend(DiscoveredOpportunity(
             title=str(item["title"]).strip(),
             brief=str(item["brief"]).strip(),
             source=str(item.get("source", "configured_feed")).strip(),
             source_url=str(item.get("source_url", "")).strip(),
             budget=float(item["budget"]) if item.get("budget") is not None else None,
-        )
-        for item in raw
-    ]
+        ) for item in raw)
+    if os.getenv("JOBTECH_ENABLED", "").lower() in {"1", "true", "yes"}:
+        query = os.getenv("JOBTECH_QUERY", "software developer")
+        limit = int(os.getenv("JOBTECH_LIMIT", "25"))
+        items.extend(JobTechConnector().search(query, limit))
+    if not items:
+        raise FileNotFoundError(f"Configure local feed or enable JobTech: {path}")
     return len(OpportunityDiscovery().ingest(items))
 
 

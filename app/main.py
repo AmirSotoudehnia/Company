@@ -11,7 +11,7 @@ from app.core.settings import settings
 from app.db import db, init_db
 from app.integrations.github import get_issue
 from app.integrations.webhooks import WebhookError, process_github_webhook, verify_signature
-from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, OpportunityCreate, SalesApprovalDecision, CustomerIntake, ChangeRequestCreate, OpsCheckCreate, InvoiceCreate
+from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, OpportunityCreate, SalesApprovalDecision, LeadInteractionCreate, CustomerIntake, ChangeRequestCreate, OpsCheckCreate, InvoiceCreate
 from app.orchestrator import Orchestrator
 from app.sales_pipeline import SalesPipeline
 from app.customer_ops import CustomerOps
@@ -218,6 +218,14 @@ def list_opportunities():
 def get_opportunity(opportunity_id: int):
     try:
         return sales.get(opportunity_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
+@app.post("/opportunities/{opportunity_id}/interactions")
+def add_lead_interaction(opportunity_id: int, body: LeadInteractionCreate, _: bool = Depends(require_operator)):
+    try:
+        return sales.add_interaction(opportunity_id, body.direction, body.channel, body.subject, body.body)
     except ValueError as exc:
         raise HTTPException(404, str(exc))
 

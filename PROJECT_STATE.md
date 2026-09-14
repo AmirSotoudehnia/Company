@@ -174,3 +174,14 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Regression suite: 66 passed, 1 third-party deprecation warning.
 - Work branch: feature/company-action-execution.
 - External authenticated connectors still require real service selection, authorization, and credentials from the owner.
+
+## 2026-09-14 Real source and communication ingress milestone
+- Added the official public Arbetsförmedlingen/JobTech JobSearch connector with bounded queries and result conversion.
+- Company discovery can combine JobTech results with the private local JSON feed.
+- Manual opportunity ingestion and authorized GitHub issue/webhook paths remain available.
+- Added operator-protected Gmail/contact-form/manual interaction ingestion.
+- Outbound interactions are forced to draft; inbound interactions are stored as received.
+- No authenticated scraping or automatic outbound sending was added.
+- Regression suite: 68 passed, 1 third-party deprecation warning.
+- Work branch: feature/real-opportunity-connectors.
+- Remaining external step: authorize a real Gmail account/connector before draft synchronization can be activated.
