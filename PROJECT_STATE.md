@@ -213,3 +213,12 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Added operator-protected GET /control/search and POST /control/search/start endpoints.
 - Live JobTech smoke test returned a real result for "flutter developer".
 - Regression suite: 79 passed, 1 third-party deprecation warning.
+
+
+## 2026-09-14 Local business lead search
+- Diagnosed the no-op panel: an older running API could serve the updated static page without the new search routes.
+- Split panel discovery into Job advertisements and Local businesses missing a website.
+- Added bounded OpenStreetMap/Nominatim connector with Växjö Persian/Latin aliases and public-service retries.
+- Local-business results are verification leads only: a missing OSM website tag is not proof that no website exists.
+- Live Växjö probe returned five candidate records; subsequent public-service load was handled as a visible error.
+- Regression suite: 80 passed, 1 third-party deprecation warning.
