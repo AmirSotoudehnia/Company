@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse
 
-APP_VERSION = "0.5.0"
+APP_VERSION = "0.6.0"
 
 from app.agents.coding import CodingAgent
 from app.core.settings import settings
@@ -29,6 +29,7 @@ from app.company_brain import CompanyBrain
 from app.company_scheduler import CompanyActionQueue
 from app.company_worker import run_once as run_company_once, search_now
 from app.runtime_config import get_search, set_search
+from app.research import ResearchService
 from app.crm import CRM
 from app.company_profile import current_profile
 from app.outbox import decide as decide_outbox, list_pending as list_pending_outbox
@@ -359,7 +360,15 @@ def control_search_start(body: OpportunitySearchConfig, _: bool = Depends(requir
     try:
         return search_now(body.query, body.limit, body.mode)
     except Exception as exc:
-        raise HTTPException(502, f"Job search failed: {str(exc)[:300]}")
+        raise HTTPException(502, f"Search failed: {str(exc)[:300]}")
+
+
+@app.post("/control/research/{finding_id}/promote")
+def control_research_promote(finding_id: int, _: bool = Depends(require_operator)):
+    try:
+        return ResearchService().promote(finding_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
 
 
 @app.post("/company/run-once")

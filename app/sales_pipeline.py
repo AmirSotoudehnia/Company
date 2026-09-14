@@ -1,5 +1,6 @@
 import json
 
+from app.company_scheduler import CompanyActionQueue
 from app.agents.opportunity import OpportunityAgent
 from app.agents.sales import SalesAgent
 from app.db import db
@@ -59,8 +60,16 @@ class SalesPipeline:
             ).fetchone()
             if not approval:
                 raise ValueError("Sales approval not found")
+            if approval["status"] != "pending":
+                raise ValueError("Sales approval was already decided")
             status = "approved" if approved else "rejected"
             conn.execute("UPDATE sales_approvals SET status=?, note=? WHERE id=?", (status, note, approval_id))
             next_status = "proposal_approved" if approved else "proposal_rejected"
             conn.execute("UPDATE opportunities SET status=? WHERE id=?", (next_status, opportunity_id))
+        if approved:
+            CompanyActionQueue().schedule(
+                "research_opportunity",
+                f"Sales approval {approval_id} authorized research and outreach preparation",
+                {"opportunity_id": opportunity_id},
+            )
         return self.get(opportunity_id)

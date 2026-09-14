@@ -51,7 +51,7 @@ class CodeJobRequest(BaseModel):
 class OpportunitySearchConfig(BaseModel):
     query: str = Field(min_length=2, max_length=200)
     limit: int = Field(default=25, ge=1, le=100)
-    mode: str = Field(default="job_ads", pattern="^(job_ads|local_businesses_without_website)$")
+    mode: str = Field(default="auto", pattern="^(auto|job_ads|local_businesses_without_website|general_web)$")
 
 
 class OpportunityCreate(BaseModel):

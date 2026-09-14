@@ -35,6 +35,7 @@ class Settings:
     bootstrap_token: str = os.getenv("BOOTSTRAP_TOKEN", "")
     control_token: str = os.getenv("CONTROL_TOKEN", "")
     control_allow_local_unauth: bool = _bool_env("CONTROL_ALLOW_LOCAL_UNAUTH", True)
+    tavily_api_key: str = os.getenv("TAVILY_API_KEY", "")
     workspace_root: str = os.getenv("WORKSPACE_ROOT", "/tmp/agent-company-workspaces")
     test_command: str = os.getenv("TEST_COMMAND", "python -m pytest -q")
     command_timeout_seconds: int = int(os.getenv("COMMAND_TIMEOUT_SECONDS", "180"))

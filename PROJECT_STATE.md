@@ -230,3 +230,13 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Each result displays name, source, qualification score, pipeline status and clickable source URL.
 - Search failures remain visible instead of appearing as a no-op.
 - Regression suite: 81 passed, 1 third-party deprecation warning.
+
+
+## 2026-09-14 General research agent
+- Added Auto and General Web modes for natural-language public-web research using Tavily.
+- Research missions, stages, failures and cited findings are durable and visible in the control panel.
+- Findings expose source links, snippet-derived contact hints and confidence, and require explicit promotion before becoming sales opportunities.
+- Sales approval now queues bounded company research and tailored outreach preparation; outbound sending remains separately gated.
+- The Tavily secret is loaded from ignored .env.local and is never returned or logged.
+- Live Persian smoke search completed with five stored sources; regression suite: 84 passed, 1 warning.
+- Private CRM text must not be sent to Tavily without explicit authorization.

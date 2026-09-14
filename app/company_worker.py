@@ -11,6 +11,7 @@ from app.db import db, init_db
 from app.integrations.jobtech import JobTechConnector
 from app.integrations.local_businesses import LocalBusinessConnector
 from app.opportunity_discovery import DiscoveredOpportunity, OpportunityDiscovery
+from app.research import ResearchService
 from app.runtime_config import get_search
 
 COMPANY_ROOT = Path(os.getenv("COMPANY_ROOT", r"I:\Company")).resolve()
@@ -26,6 +27,7 @@ def _feed_path() -> Path:
 
 def _discover() -> int:
     items = []
+    research_count = 0
     path = _feed_path()
     if path.exists():
         raw = json.loads(path.read_text(encoding="utf-8-sig"))
@@ -40,25 +42,48 @@ def _discover() -> int:
         ) for item in raw)
     if os.getenv("JOBTECH_ENABLED", "").lower() in {"1", "true", "yes"}:
         search = get_search()
-        connector = JobTechConnector() if search["mode"] == "job_ads" else LocalBusinessConnector()
-        items.extend(connector.search(search["query"], search["limit"]))
+        resolved_mode = _auto_mode(search["query"]) if search["mode"] == "auto" else search["mode"]
+        if resolved_mode == "general_web":
+            research_count = ResearchService().run(
+                search["query"], search["limit"]
+            )["result_count"]
+        else:
+            connector = JobTechConnector() if resolved_mode == "job_ads" else LocalBusinessConnector()
+            items.extend(connector.search(search["query"], search["limit"]))
     if not items:
-        raise FileNotFoundError(f"Configure local feed or enable JobTech: {path}")
+        if research_count:
+            return research_count
+        raise FileNotFoundError(f"Configure local feed or enable a search provider: {path}")
     return len(OpportunityDiscovery().ingest(items))
 
 
-def search_now(query: str, limit: int = 25, mode: str = "job_ads"):
+def _auto_mode(query: str) -> str:
+    normalized = query.casefold()
+    job_terms = ("job", "jobs", "vacancy", "hiring", "developer role", "استخدام", "کاریابی", "آگهی کار")
+    return "job_ads" if any(term in normalized for term in job_terms) else "general_web"
+
+
+def search_now(query: str, limit: int = 25, mode: str = "auto"):
     from app.runtime_config import set_search
     config = set_search(query, limit, mode)
+    resolved_mode = _auto_mode(config["query"]) if mode == "auto" else mode
     with db() as conn:
-        run_id = conn.execute("INSERT INTO search_runs(mode,query) VALUES(?,?)", (mode, config["query"])).lastrowid
+        run_id = conn.execute("INSERT INTO search_runs(mode,query) VALUES(?,?)", (resolved_mode, config["query"])).lastrowid
     try:
-        connector = JobTechConnector() if mode == "job_ads" else LocalBusinessConnector()
-        items = connector.search(config["query"], config["limit"])
-        inserted = OpportunityDiscovery().ingest(items)
+        if resolved_mode == "general_web":
+            mission = ResearchService().run(config["query"], config["limit"])
+            found = mission["result_count"]
+            inserted = found
+        else:
+            connector = JobTechConnector() if resolved_mode == "job_ads" else LocalBusinessConnector()
+            items = connector.search(config["query"], config["limit"])
+            inserted_items = OpportunityDiscovery().ingest(items)
+            found, inserted = len(items), len(inserted_items)
+            mission = None
         with db() as conn:
-            conn.execute("UPDATE search_runs SET status='completed',found=?,new_count=?,finished_at=CURRENT_TIMESTAMP WHERE id=?", (len(items), len(inserted), run_id))
-        return {**config, "run_id": run_id, "status": "completed", "found": len(items), "new": len(inserted)}
+            conn.execute("UPDATE search_runs SET status='completed',found=?,new_count=?,finished_at=CURRENT_TIMESTAMP WHERE id=?", (found, inserted, run_id))
+        return {**config, "resolved_mode": resolved_mode, "mission_id": mission["id"] if mission else None,
+                "run_id": run_id, "status": "completed", "found": found, "new": inserted}
     except Exception as exc:
         with db() as conn:
             conn.execute("UPDATE search_runs SET status='failed',error=?,finished_at=CURRENT_TIMESTAMP WHERE id=?", (str(exc)[:500], run_id))
@@ -75,6 +100,10 @@ def run_once():
         if action["action"] == "discover_opportunities":
             count = _discover()
             result = queue.finish(action["id"], "completed", f"ingested={count}")
+        elif action["action"] == "research_opportunity":
+            payload = json.loads(action["payload_json"])
+            mission = ResearchService().enrich_opportunity(int(payload["opportunity_id"]))
+            result = queue.finish(action["id"], "completed", f"mission={mission['id']}; sources={mission['result_count']}")
         else:
             result = queue.finish(action["id"], "waiting_human", "owner approval or configured connector required")
     except FileNotFoundError as exc:
