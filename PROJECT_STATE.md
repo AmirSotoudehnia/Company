@@ -191,3 +191,16 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Future work must read PROJECT_STATE.md and the completion checklist before editing.
 - GitHub operations are authorized for this repository; production, outbound commercial actions and spending remain separately gated.
 - Gmail is installed in ChatGPT, but the local service still needs an OAuth/provider boundary or ChatGPT-based orchestration decision.
+
+
+## 2026-09-14 Local Operational MVP completion
+- Owner profile persisted: local Windows only, ChatGPT Gmail, legal status unregistered.
+- Added explicit outbound outbox approvals. Approval permits Gmail draft creation only; it never records a send.
+- Control panel now exposes and decides project, sales, scope, Gmail-draft and invoice gates.
+- Added tenant API-key issue/list/revoke lifecycle with final-key protection.
+- Added immutable invoice draft decisions; official tax invoices remain disabled while unregistered.
+- Added Python, Node/TypeScript, Flutter, .NET and Kotlin build-profile registry.
+- Added baseline security headers and safety regression coverage.
+- Local regression suite: 77 passed, 1 third-party deprecation warning.
+- Health/profile smoke test passed; C: free space remained about 24.49 GB.
+- Remaining items are external/public-scale expansions, not blockers for the selected local MVP.

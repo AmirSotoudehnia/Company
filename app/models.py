@@ -99,6 +99,10 @@ class OpsCheckCreate(BaseModel):
     detail: str = Field(default="", max_length=1000)
 
 
+class TenantKeyCreate(BaseModel):
+    label: str = Field(default="operator", min_length=1, max_length=80)
+
+
 class InvoiceCreate(BaseModel):
     engagement_id: int = Field(gt=0)
     amount: float = Field(gt=0)

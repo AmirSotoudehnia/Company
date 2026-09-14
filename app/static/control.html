@@ -8,16 +8,24 @@ button{background:#334155;color:white;border:0;border-radius:8px;padding:7px 10p
 .cols{display:grid;grid-template-columns:2fr 1fr;gap:14px}@media(max-width:800px){.cols{grid-template-columns:1fr}}</style></head><body><div class="wrap">
 <h1>Agent Company — Live Control</h1><div class="muted" id="stamp">Connecting…</div><div class="grid" id="agents"></div>
 <div class="cols"><div class="panel"><h2>Jobs</h2><div id="jobs"></div></div><div class="panel"><h2>Pending approvals</h2><div id="approvals"></div><h2>Incidents</h2><div id="incidents"></div></div></div>
+<div class="panel" style="margin-top:14px"><h2>Gmail draft outbox</h2><div id="outbox"></div></div>
+<div class="panel" style="margin-top:14px"><h2>Invoice drafts</h2><div id="invoices"></div></div>
 <div class="panel" style="margin-top:14px"><h2>Projects</h2><div id="projects"></div></div>
 <script>
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const table=(rows,cols)=>rows.length?'<table><tr>'+cols.map(c=>'<th>'+esc(c[0])+'</th>').join('')+'</tr>'+rows.map(r=>'<tr>'+cols.map(c=>'<td>'+esc(r[c[1]])+'</td>').join('')+'</tr>').join('')+'</table>':'<span class="muted">None</span>';
 async function toggle(name,paused){await fetch('/control/agents/'+encodeURIComponent(name)+'/'+(paused?'resume':'pause'),{method:'POST'});load()}
 async function job(id,action){await fetch('/control/jobs/'+id+'/'+action,{method:'POST'});load()}
+const decisionBody=approved=>({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approved,note:'Reviewed in local control panel'})});
+async function outboxDecision(id,approved){await fetch('/control/outbox/'+id+'/decision',decisionBody(approved));load()}
+async function approvalDecision(a,approved){const roots={project:'projects',sales:'opportunities',engagement:'engagements'};const tails={project:'approve',sales:'approve',engagement:'scope-approval'};await fetch('/'+roots[a.category]+'/'+a.project_id+'/'+tails[a.category]+'/'+a.id,decisionBody(approved));load()}
+async function invoiceDecision(id,approved){await fetch('/billing/invoices/'+id+'/decision',decisionBody(approved));load()}
 async function load(){try{const d=await fetch('/control/snapshot').then(r=>r.json());stamp.textContent='Live • '+new Date(d.generated_at).toLocaleString();
 agents.innerHTML=d.agents.map(a=>`<div class="card"><div class="agent"><b>${esc(a.agent)}</b><span class="status ${esc(a.status)}">${esc(a.status)}</span></div><p>${esc(a.detail)||'<span class="muted">No current task</span>'}</p><small class="muted">Project ${esc(a.project_id??'-')} • Job ${esc(a.job_id??'-')}</small><br><br><button onclick="toggle('${esc(a.agent)}',${a.paused})">${a.paused?'Resume':'Pause'}</button></div>`).join('');
 jobs.innerHTML=d.jobs.length?'<table><tr><th>ID</th><th>Kind</th><th>Status</th><th>Worker</th><th>Action</th></tr>'+d.jobs.map(j=>`<tr><td>${j.id}</td><td>${esc(j.kind)}</td><td>${esc(j.status)}</td><td>${esc(j.locked_by||'-')}</td><td>${j.status==='failed'||j.status==='cancelled'?`<button onclick="job(${j.id},'retry')">Retry</button>`:''} ${j.status==='queued'||j.status==='running'?`<button onclick="job(${j.id},'cancel')">Cancel</button>`:''}</td></tr>`).join('')+'</table>':'<span class="muted">None</span>';
-approvals.innerHTML=table(d.pending_approvals,[['ID','id'],['Kind','kind'],['Status','status']]);
+approvals.innerHTML=d.pending_approvals.length?'<table><tr><th>Kind</th><th>Decision</th></tr>'+d.pending_approvals.map(a=>`<tr><td>${esc(a.category)} / ${esc(a.kind)}</td><td><button onclick='approvalDecision(${JSON.stringify(a)},true)'>Approve</button> <button onclick='approvalDecision(${JSON.stringify(a)},false)'>Reject</button></td></tr>`).join('')+'</table>':'<span class="muted">None</span>';
+outbox.innerHTML=d.outbox.length?'<table><tr><th>ID</th><th>Opportunity</th><th>Provider</th><th>Decision</th></tr>'+d.outbox.map(o=>`<tr><td>${o.id}</td><td>${o.opportunity_id}</td><td>${esc(o.provider)}</td><td><button onclick="outboxDecision(${o.id},true)">Approve Gmail draft</button> <button onclick="outboxDecision(${o.id},false)">Reject</button></td></tr>`).join('')+'</table>':'<span class="muted">None</span>';
+invoices.innerHTML=d.invoices.length?'<table><tr><th>Number</th><th>Amount</th><th>Status</th><th>Decision</th></tr>'+d.invoices.map(i=>`<tr><td>${esc(i.number)}</td><td>${esc(i.amount)} ${esc(i.currency)}</td><td>${esc(i.status)}</td><td>${i.status==='draft'?`<button onclick="invoiceDecision(${i.id},true)">Approve draft</button> <button onclick="invoiceDecision(${i.id},false)">Reject</button>`:'-'}</td></tr>`).join('')+'</table>':'<span class="muted">None</span>';
 incidents.innerHTML=table(d.incidents,[['Severity','severity'],['Title','title'],['Status','status']]);projects.innerHTML=table(d.projects,[['ID','id'],['Project','name'],['Status','status'],['Created','created_at']]);
 }catch(e){stamp.textContent='Disconnected • '+e} }
 load();setInterval(load,2000);

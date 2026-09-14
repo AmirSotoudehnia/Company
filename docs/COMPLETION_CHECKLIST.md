@@ -15,22 +15,30 @@ Canonical local root: I:\Company
 - Official public Arbetsförmedlingen JobTech discovery.
 - Manual, GitHub, Gmail/contact-form interaction ingress with outbound forced to draft.
 
-## Remaining code work
+## Local Operational MVP completed (2026-09-14)
 
-- Complete operator UI for sales, scope, communication, invoice, merge and production approvals.
-- Add explicit outbound outbox approval and provider adapter interfaces.
-- Add sandbox/build profiles for Flutter, Node/TypeScript, .NET and Kotlin.
-- Add tenant API-key creation, rotation, listing and revocation.
-- Add invoice PDF generation and immutable invoice lifecycle.
-- Add PostgreSQL production profile, migrations, backup restore tests and health checks.
-- Add end-to-end company simulation covering lead through paid/delivered closure.
-- Add production security headers, rate limits, structured logging and release checklist.
+- Owner profile fixed to local Windows, ChatGPT Gmail, and unregistered legal status.
+- Explicit Gmail-draft outbox approval; approval never marks a message sent.
+- Operator dashboard exposes outbox and invoice drafts.
+- Tenant API-key issue/list/revoke lifecycle; final active key cannot be revoked.
+- Immutable draft-invoice approval/rejection lifecycle (not an official tax invoice).
+- Build profile registry for Python, Node/TypeScript, Flutter, .NET and Kotlin.
+- Baseline browser security headers and end-to-end safety regression tests.
+
+## Deferred expansion work (not required for the selected local-only profile)
+
+- Add direct provider adapters beyond the selected ChatGPT Gmail handoff.
+- Build and validate dedicated Docker images for non-Python stack profiles.
+- Generate official invoice PDFs after legal registration and tax details exist.
+- Add PostgreSQL, migrations, restore drills and production health checks if deployment becomes public.
+- Add live lead-to-payment testing after real customer and payment-provider data exist.
+- Add distributed rate limiting and centralized logs if the service leaves the local computer.
 
 ## External blockers
 
-- Gmail OAuth credentials or a decision to keep Gmail orchestration in ChatGPT.
-- Legal company name, organisation number, address, VAT/tax status and invoice terms.
-- Domain and hosting provider, or approval of a zero-cost local-only deployment.
+- Gmail decision resolved: ChatGPT Gmail with owner-approved drafts only.
+- Legal decision resolved for MVP: unregistered; official invoices remain unavailable.
+- Deployment decision resolved for MVP: zero-cost, local Windows only.
 - Accounting/payment provider selection and credentials.
 - Real customer/recipient data for an end-to-end live test.
 

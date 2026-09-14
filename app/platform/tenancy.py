@@ -34,6 +34,36 @@ def create_tenant(name: str, slug: str | None = None) -> tuple[dict, str]:
     return tenant, raw_key
 
 
+def issue_api_key(tenant_id: int, label: str = "operator") -> tuple[dict, str]:
+    raw_key = "ac_" + secrets.token_urlsafe(32)
+    with db() as conn:
+        cur = conn.execute(
+            "INSERT INTO tenant_keys(tenant_id,key_hash,label) VALUES(?,?,?)",
+            (tenant_id, hash_api_key(raw_key), label.strip()),
+        )
+        row = conn.execute("SELECT id,tenant_id,label,revoked,created_at FROM tenant_keys WHERE id=?", (cur.lastrowid,)).fetchone()
+        return dict(row), raw_key
+
+
+def list_api_keys(tenant_id: int) -> list[dict]:
+    with db() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT id,tenant_id,label,revoked,created_at FROM tenant_keys WHERE tenant_id=? ORDER BY id DESC", (tenant_id,)
+        )]
+
+
+def revoke_api_key(tenant_id: int, key_id: int) -> dict:
+    with db() as conn:
+        row = conn.execute("SELECT id FROM tenant_keys WHERE id=? AND tenant_id=?", (key_id, tenant_id)).fetchone()
+        if not row:
+            raise TenantError("API key not found")
+        active = conn.execute("SELECT COUNT(*) FROM tenant_keys WHERE tenant_id=? AND revoked=0", (tenant_id,)).fetchone()[0]
+        if active <= 1:
+            raise TenantError("Cannot revoke the final active API key")
+        conn.execute("UPDATE tenant_keys SET revoked=1 WHERE id=?", (key_id,))
+        return dict(conn.execute("SELECT id,tenant_id,label,revoked,created_at FROM tenant_keys WHERE id=?", (key_id,)).fetchone())
+
+
 def tenant_from_api_key(raw: str) -> dict | None:
     if not raw:
         return None

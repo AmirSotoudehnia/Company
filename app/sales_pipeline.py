@@ -18,7 +18,8 @@ class SalesPipeline:
             opportunity_id = cur.lastrowid
             if proposal.status == "awaiting_human_approval":
                 conn.execute("INSERT INTO sales_approvals(opportunity_id) VALUES(?)", (opportunity_id,))
-                conn.execute("INSERT INTO lead_interactions(opportunity_id,direction,channel,subject,body,status) VALUES(?,?,?,?,?,?)", (opportunity_id, "outbound", "draft", f"Proposal: {title}", proposal.proposal, "draft"))
+                interaction_id = conn.execute("INSERT INTO lead_interactions(opportunity_id,direction,channel,subject,body,status) VALUES(?,?,?,?,?,?)", (opportunity_id, "outbound", "draft", f"Proposal: {title}", proposal.proposal, "draft")).lastrowid
+                conn.execute("INSERT INTO outbox_approvals(opportunity_id,interaction_id) VALUES(?,?)", (opportunity_id, interaction_id))
         return self.get(opportunity_id)
 
     def get(self, opportunity_id: int):
@@ -41,6 +42,8 @@ class SalesPipeline:
                 raise ValueError("Opportunity not found")
             status = "received" if direction == "inbound" else "draft"
             cur = conn.execute("INSERT INTO lead_interactions(opportunity_id,direction,channel,subject,body,status) VALUES(?,?,?,?,?,?)", (opportunity_id,direction,channel,subject,body,status))
+            if direction == "outbound":
+                conn.execute("INSERT INTO outbox_approvals(opportunity_id,interaction_id) VALUES(?,?)", (opportunity_id, cur.lastrowid))
             return dict(conn.execute("SELECT * FROM lead_interactions WHERE id=?", (cur.lastrowid,)).fetchone())
 
     def interactions(self, opportunity_id: int):
