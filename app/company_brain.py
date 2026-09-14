@@ -33,7 +33,7 @@ class CompanyBrain:
         if s["open_incidents"]: return CompanyDecision("resolve_incidents", "Operations has open incidents")
         if s["pending_sales_approvals"]: return CompanyDecision("await_owner_approval", "A commercial commitment needs owner approval")
         if s["active_projects"] or s["queued_jobs"]: return CompanyDecision("deliver_work", "Customer work is active")
-        return CompanyDecision("discover_opportunities", "No active delivery work; grow pipeline")
+        return CompanyDecision("discover_revenue_opportunities", "No active delivery work; find monetizable demand")
 
     def tick(self):
         d=self.decide()

@@ -54,6 +54,11 @@ class OpportunitySearchConfig(BaseModel):
     mode: str = Field(default="auto", pattern="^(auto|job_ads|local_businesses_without_website|general_web)$")
 
 
+class RevenueSearchConfig(BaseModel):
+    objective: str = Field(min_length=3, max_length=500)
+    limit: int = Field(default=12, ge=1, le=40)
+
+
 class OpportunityCreate(BaseModel):
     title: str = Field(min_length=3, max_length=160)
     brief: str = Field(min_length=10)

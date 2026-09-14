@@ -24,7 +24,9 @@ Canonical local root: I:\Company
 - Immutable draft-invoice approval/rejection lifecycle (not an official tax invoice).
 - Build profile registry for Python, Node/TypeScript, Flutter, .NET and Kotlin.
 - Baseline browser security headers and end-to-end safety regression tests.
-- Panel-driven JobTech and local-business lead search with durable progress, errors and visible result tables.
+- Revenue-focused control panel for service leads, freelance projects, buyer/seller matching and general commercial research.
+- Strict candidate gating: unverified results and snippet-derived contacts cannot enter sales.
+- JobTech retained only as a legacy optional connector, not the primary company search.
 
 ## Deferred expansion work (not required for the selected local-only profile)
 

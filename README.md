@@ -187,10 +187,10 @@ Other supported ingress paths are the existing manual `POST /opportunities` endp
 `POST /opportunities/{id}/interactions` records Gmail, contact-form, manual, or draft channel events. Outbound records are always forced to `draft`; inbound records become `received`. A future authenticated Gmail adapter may create or synchronize drafts, but it must never bypass owner approval.
 
 
-## General web research
+## Revenue opportunity engine
 
-The control panel supports an Auto mode for natural-language public-web research. Job-related prompts route to the official JobTech connector; other prompts use Tavily when TAVILY_API_KEY is configured in the ignored .env.local file.
+The primary control-panel search is for monetizable opportunities, not employment. A natural-language objective is classified as a service lead, freelance project, trade match, or general revenue research. Trade missions search separately for buyer and seller roles.
 
-Research is stored as durable missions and cited findings. A finding becomes a sales opportunity only when the operator selects Create opportunity. Search prompts are sent to the configured provider. Approved CRM opportunities may enqueue research that sends the opportunity title and a bounded excerpt of its brief to Tavily; do not enable that workflow for private data without appropriate authorization.
+Every result starts as a candidate. The panel shows its role, opportunity type, verification status, verification reason, risk status, and whether profit can be calculated. Extracted snippet emails and phone numbers are never presented as verified contacts. Only a candidate with the explicit verified state can enter sales; all others remain blocked.
 
-No research result is treated as verified proof, and no outbound message is sent automatically. Research can prepare a Gmail draft candidate, but the outbox approval remains a separate human gate.
+JobTech remains a legacy optional connector and is not part of the primary control-panel flow. Tavily queries are configured with TAVILY_API_KEY in the ignored .env.local file. No purchase, sale, contract, price, outbound message, invoice, or payment is executed without its required human and legal gates.
