@@ -64,3 +64,28 @@ def test_company_worker_ingests_configured_local_feed(monkeypatch):
         assert "ingested=1" in result["action"]["reason"]
     finally:
         feed.unlink(missing_ok=True)
+
+def test_jobtech_hit_conversion():
+    from app.integrations.jobtech import JobTechConnector
+    hit = {
+        "id": "123",
+        "headline": "Backend Developer",
+        "description": {"text": "Build and test APIs."},
+        "employer": {"name": "Example AB"},
+        "workplace_address": {"municipality": "Växjö"},
+        "webpage_url": "https://arbetsformedlingen.se/platsbanken/annonser/123",
+    }
+    item = JobTechConnector._convert(hit)
+    assert item.source == "arbetsformedlingen_jobtech"
+    assert "Example AB" in item.brief
+    assert "Växjö" in item.brief
+
+
+def test_manual_contact_channels_remain_draft_or_received():
+    from app.sales_pipeline import SalesPipeline
+    pipeline = SalesPipeline()
+    opportunity = pipeline.create("Contact test", "Build a secure tested application for a customer", "manual")
+    outbound = pipeline.add_interaction(opportunity["id"], "outbound", "gmail", "Hello", "Draft message")
+    inbound = pipeline.add_interaction(opportunity["id"], "inbound", "contact_form", "Reply", "Customer response")
+    assert outbound["status"] == "draft"
+    assert inbound["status"] == "received"

@@ -61,6 +61,13 @@ class SalesApprovalDecision(BaseModel):
     note: str = ""
 
 
+class LeadInteractionCreate(BaseModel):
+    direction: str = Field(pattern="^(inbound|outbound)$")
+    channel: str = Field(pattern="^(gmail|contact_form|manual|draft)$")
+    subject: str = Field(default="", max_length=300)
+    body: str = Field(min_length=1, max_length=20000)
+
+
 class MilestoneInput(BaseModel):
     title: str = Field(min_length=2, max_length=160)
     deliverable: str = Field(min_length=2)
