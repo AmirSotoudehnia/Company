@@ -1,7 +1,7 @@
 from app.db import db
 
 
-DEFAULTS = {"jobtech_query": "software developer", "jobtech_limit": "25"}
+DEFAULTS = {"search_query": "software developer", "search_limit": "25", "search_mode": "job_ads"}
 
 
 def get_setting(key: str) -> str:
@@ -10,21 +10,26 @@ def get_setting(key: str) -> str:
     return row["value"] if row else DEFAULTS[key]
 
 
-def set_search(query: str, limit: int = 25) -> dict:
+def set_search(query: str, limit: int = 25, mode: str = "job_ads") -> dict:
     query = query.strip()
     if not query:
         raise ValueError("Search query is required")
     limit = min(max(int(limit), 1), 100)
+    if mode not in {"job_ads", "local_businesses_without_website"}:
+        raise ValueError("Unsupported search mode")
     with db() as conn:
-        for key, value in (("jobtech_query", query), ("jobtech_limit", str(limit))):
+        for key, value in (("search_query", query), ("search_limit", str(limit)), ("search_mode", mode)):
             conn.execute(
                 """INSERT INTO runtime_settings(key,value,updated_at) VALUES(?,?,CURRENT_TIMESTAMP)
                    ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP""",
                 (key, value),
             )
-    return {"query": query, "limit": limit, "source": "arbetsformedlingen_jobtech"}
+    source = "arbetsformedlingen_jobtech" if mode == "job_ads" else "openstreetmap_missing_website"
+    return {"query": query, "limit": limit, "mode": mode, "source": source}
 
 
 def get_search() -> dict:
-    return {"query": get_setting("jobtech_query"), "limit": int(get_setting("jobtech_limit")),
-            "source": "arbetsformedlingen_jobtech"}
+    mode = get_setting("search_mode")
+    source = "arbetsformedlingen_jobtech" if mode == "job_ads" else "openstreetmap_missing_website"
+    return {"query": get_setting("search_query"), "limit": int(get_setting("search_limit")),
+            "mode": mode, "source": source}

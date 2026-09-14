@@ -357,7 +357,7 @@ def control_search_config(_: bool = Depends(require_operator)):
 @app.post("/control/search/start")
 def control_search_start(body: OpportunitySearchConfig, _: bool = Depends(require_operator)):
     try:
-        return search_now(body.query, body.limit)
+        return search_now(body.query, body.limit, body.mode)
     except Exception as exc:
         raise HTTPException(502, f"Job search failed: {str(exc)[:300]}")
 

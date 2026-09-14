@@ -9,6 +9,7 @@ from app.company_brain import CompanyBrain
 from app.company_scheduler import CompanyActionQueue
 from app.db import init_db
 from app.integrations.jobtech import JobTechConnector
+from app.integrations.local_businesses import LocalBusinessConnector
 from app.opportunity_discovery import DiscoveredOpportunity, OpportunityDiscovery
 from app.runtime_config import get_search
 
@@ -39,16 +40,18 @@ def _discover() -> int:
         ) for item in raw)
     if os.getenv("JOBTECH_ENABLED", "").lower() in {"1", "true", "yes"}:
         search = get_search()
-        items.extend(JobTechConnector().search(search["query"], search["limit"]))
+        connector = JobTechConnector() if search["mode"] == "job_ads" else LocalBusinessConnector()
+        items.extend(connector.search(search["query"], search["limit"]))
     if not items:
         raise FileNotFoundError(f"Configure local feed or enable JobTech: {path}")
     return len(OpportunityDiscovery().ingest(items))
 
 
-def search_now(query: str, limit: int = 25):
+def search_now(query: str, limit: int = 25, mode: str = "job_ads"):
     from app.runtime_config import set_search
-    config = set_search(query, limit)
-    items = JobTechConnector().search(config["query"], config["limit"])
+    config = set_search(query, limit, mode)
+    connector = JobTechConnector() if mode == "job_ads" else LocalBusinessConnector()
+    items = connector.search(config["query"], config["limit"])
     inserted = OpportunityDiscovery().ingest(items)
     return {**config, "found": len(items), "new": len(inserted)}
 

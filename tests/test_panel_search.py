@@ -20,6 +20,7 @@ def test_search_configuration_persists():
     assert saved == {
         "query": "flutter developer",
         "limit": 100,
+        "mode": "job_ads",
         "source": "arbetsformedlingen_jobtech",
     }
     assert get_search() == saved
@@ -29,15 +30,27 @@ def test_control_panel_search_endpoint(monkeypatch):
     from fastapi.testclient import TestClient
     import app.main as main
 
-    monkeypatch.setattr(main, "search_now", lambda query, limit: {
-        "query": query, "limit": limit, "source": "arbetsformedlingen_jobtech",
+    monkeypatch.setattr(main, "search_now", lambda query, limit, mode: {
+        "query": query, "limit": limit, "mode": mode, "source": "arbetsformedlingen_jobtech",
         "found": 7, "new": 3,
     })
     with TestClient(main.app) as client:
         config = client.get("/control/search")
         assert config.status_code == 200
         result = client.post("/control/search/start", json={
-            "query": "Flutter developer", "limit": 20,
+            "query": "Flutter developer", "limit": 20, "mode": "job_ads",
         })
     assert result.status_code == 200
     assert result.json()["new"] == 3
+
+
+def test_local_business_result_is_verification_lead():
+    from app.integrations.local_businesses import LocalBusinessConnector
+
+    item = LocalBusinessConnector._convert({
+        "type": "node", "id": 42,
+        "tags": {"name": "Example AB", "office": "company"},
+    }, "Växjö")
+    assert item.source == "openstreetmap_missing_website"
+    assert "Verify independently" in item.brief
+    assert item.source_url.endswith("/node/42")
