@@ -48,6 +48,11 @@ class CodeJobRequest(BaseModel):
     issue_number: int = Field(gt=0)
 
 
+class OpportunitySearchConfig(BaseModel):
+    query: str = Field(min_length=2, max_length=200)
+    limit: int = Field(default=25, ge=1, le=100)
+
+
 class OpportunityCreate(BaseModel):
     title: str = Field(min_length=3, max_length=160)
     brief: str = Field(min_length=10)

@@ -204,3 +204,12 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Local regression suite: 77 passed, 1 third-party deprecation warning.
 - Health/profile smoke test passed; C: free space remained about 24.49 GB.
 - Remaining items are external/public-scale expansions, not blockers for the selected local MVP.
+
+
+## 2026-09-14 Panel-driven opportunity search
+- Added a persistent Find Work form to /control with query and result-limit inputs.
+- Save & start search immediately queries the official JobTech source and stores new opportunities.
+- The saved query persists in SQLite and is reused by recurring discovery cycles.
+- Added operator-protected GET /control/search and POST /control/search/start endpoints.
+- Live JobTech smoke test returned a real result for "flutter developer".
+- Regression suite: 79 passed, 1 third-party deprecation warning.
