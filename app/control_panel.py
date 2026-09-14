@@ -66,6 +66,10 @@ def dashboard_snapshot():
         research_missions = [dict(r) for r in conn.execute("SELECT * FROM research_missions ORDER BY id DESC LIMIT 20")]
         research_findings = [dict(r) for r in conn.execute(
             "SELECT f.* FROM research_findings f ORDER BY f.id DESC LIMIT 100")]
+        revenue_missions = [dict(r) for r in conn.execute(
+            "SELECT * FROM revenue_missions ORDER BY id DESC LIMIT 20")]
+        revenue_candidates = [dict(r) for r in conn.execute(
+            "SELECT * FROM revenue_candidates ORDER BY id DESC LIMIT 100")]
         approvals = [dict(r) for r in conn.execute("SELECT id,project_id,kind,status,created_at,'project' AS category FROM approvals WHERE status='pending' ORDER BY id DESC")]
         approvals += [dict(r) for r in conn.execute("SELECT id,opportunity_id AS project_id,kind,status,created_at,'sales' AS category FROM sales_approvals WHERE status='pending' ORDER BY id DESC")]
         approvals += [dict(r) for r in conn.execute("SELECT id,engagement_id AS project_id,kind,status,created_at,'engagement' AS category FROM engagement_approvals WHERE status='pending' ORDER BY id DESC")]
@@ -83,4 +87,5 @@ def dashboard_snapshot():
     return {"generated_at": datetime.now(timezone.utc).isoformat(), "agents": agents, "jobs": jobs,
             "projects": projects, "opportunities": opportunities, "search_runs": search_runs,
             "research_missions": research_missions, "research_findings": research_findings,
+            "revenue_missions": revenue_missions, "revenue_candidates": revenue_candidates,
             "pending_approvals": approvals, "outbox": outbox, "invoices": invoices, "incidents": incidents, "events": events}

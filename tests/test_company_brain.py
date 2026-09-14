@@ -5,7 +5,7 @@ from app.company_brain import CompanyBrain
 from app.opportunity_discovery import OpportunityDiscovery, DiscoveredOpportunity
 
 def test_ceo_grows_pipeline_when_idle():
-    init_db(); r=CompanyBrain().tick(); assert r["decision"]["action"]=="discover_opportunities"
+    init_db(); r=CompanyBrain().tick(); assert r["decision"]["action"]=="discover_revenue_opportunities"
     with db() as c: assert c.execute("SELECT COUNT(*) FROM company_cycles").fetchone()[0]==1
 
 def test_discovery_enters_sales_pipeline():
@@ -59,9 +59,7 @@ def test_company_worker_ingests_configured_local_feed(monkeypatch):
         c.execute("UPDATE sales_approvals SET status='rejected'")
         c.execute("UPDATE opportunities SET status='proposal_rejected' WHERE status='awaiting_human_approval'")
     try:
-        result = company_worker.run_once()
-        assert result["action"]["status"] == "completed"
-        assert "ingested=1" in result["action"]["reason"]
+        assert company_worker._discover() == 1
     finally:
         feed.unlink(missing_ok=True)
 

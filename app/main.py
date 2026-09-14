@@ -4,14 +4,14 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse
 
-APP_VERSION = "0.6.0"
+APP_VERSION = "0.7.0"
 
 from app.agents.coding import CodingAgent
 from app.core.settings import settings
 from app.db import db, init_db
 from app.integrations.github import get_issue
 from app.integrations.webhooks import WebhookError, process_github_webhook, verify_signature
-from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, TenantKeyCreate, OpportunityCreate, OpportunitySearchConfig, SalesApprovalDecision, LeadInteractionCreate, CustomerIntake, ChangeRequestCreate, OpsCheckCreate, InvoiceCreate
+from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, TenantKeyCreate, OpportunityCreate, OpportunitySearchConfig, RevenueSearchConfig, SalesApprovalDecision, LeadInteractionCreate, CustomerIntake, ChangeRequestCreate, OpsCheckCreate, InvoiceCreate
 from app.orchestrator import Orchestrator
 from app.sales_pipeline import SalesPipeline
 from app.customer_ops import CustomerOps
@@ -30,6 +30,7 @@ from app.company_scheduler import CompanyActionQueue
 from app.company_worker import run_once as run_company_once, search_now
 from app.runtime_config import get_search, set_search
 from app.research import ResearchService
+from app.revenue_engine import RevenueEngine
 from app.crm import CRM
 from app.company_profile import current_profile
 from app.outbox import decide as decide_outbox, list_pending as list_pending_outbox
@@ -369,6 +370,22 @@ def control_research_promote(finding_id: int, _: bool = Depends(require_operator
         return ResearchService().promote(finding_id)
     except ValueError as exc:
         raise HTTPException(404, str(exc))
+
+
+@app.post("/control/revenue/search")
+def control_revenue_search(body: RevenueSearchConfig, _: bool = Depends(require_operator)):
+    try:
+        return RevenueEngine().search(body.objective, body.limit)
+    except Exception as exc:
+        raise HTTPException(502, f"Revenue search failed: {str(exc)[:300]}")
+
+
+@app.post("/control/revenue/{candidate_id}/promote")
+def control_revenue_promote(candidate_id: int, _: bool = Depends(require_operator)):
+    try:
+        return RevenueEngine().promote(candidate_id)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc))
 
 
 @app.post("/company/run-once")

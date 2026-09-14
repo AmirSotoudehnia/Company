@@ -240,3 +240,14 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - The Tavily secret is loaded from ignored .env.local and is never returned or logged.
 - Live Persian smoke search completed with five stored sources; regression suite: 84 passed, 1 warning.
 - Private CRM text must not be sent to Tavily without explicit authorization.
+
+
+## 2026-09-14 Revenue opportunity redesign
+- Replaced the primary employment-oriented panel flow with a revenue-objective workflow.
+- Natural-language objectives are classified as service leads, freelance projects, trade matching, or general commercial research.
+- Trade matching searches buyer and seller roles separately and never claims profit without price, cost, logistics and compliance inputs.
+- Every result is a candidate with explicit verification and risk status; snippet-derived emails and phone numbers are not exposed as verified data.
+- Only fully verified candidates can enter the sales pipeline. Unverified, audit-required and due-diligence-required candidates are blocked.
+- CompanyBrain now prioritizes recurring revenue opportunity discovery; JobTech remains a legacy optional connector.
+- Live smoke tests covered SEO lead discovery and oil buyer/seller matching without outreach or transaction execution.
+- Regression suite: 89 passed, 1 warning; control-panel JavaScript validation passed.

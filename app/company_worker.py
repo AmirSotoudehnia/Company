@@ -12,6 +12,7 @@ from app.integrations.jobtech import JobTechConnector
 from app.integrations.local_businesses import LocalBusinessConnector
 from app.opportunity_discovery import DiscoveredOpportunity, OpportunityDiscovery
 from app.research import ResearchService
+from app.revenue_engine import RevenueEngine
 from app.runtime_config import get_search
 
 COMPANY_ROOT = Path(os.getenv("COMPANY_ROOT", r"I:\Company")).resolve()
@@ -97,9 +98,25 @@ def run_once():
     if not action:
         return {"brain": brain_result, "action": None}
     try:
-        if action["action"] == "discover_opportunities":
+        if action["action"] == "discover_revenue_opportunities":
+            with db() as conn:
+                saved = conn.execute(
+                    "SELECT value FROM runtime_settings WHERE key='revenue_objective'"
+                ).fetchone()
+            if not saved:
+                result = queue.finish(
+                    action["id"], "waiting_human",
+                    "Enter a revenue objective in the control panel first",
+                )
+            else:
+                mission = RevenueEngine().search(saved["value"], 12)
+                result = queue.finish(
+                    action["id"], "completed",
+                    f"revenue_mission={mission['id']}; candidates={mission['candidate_count']}",
+                )
+        elif action["action"] == "discover_opportunities":
             count = _discover()
-            result = queue.finish(action["id"], "completed", f"ingested={count}")
+            result = queue.finish(action["id"], "completed", f"legacy_ingested={count}")
         elif action["action"] == "research_opportunity":
             payload = json.loads(action["payload_json"])
             mission = ResearchService().enrich_opportunity(int(payload["opportunity_id"]))
