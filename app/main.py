@@ -11,7 +11,7 @@ from app.core.settings import settings
 from app.db import db, init_db
 from app.integrations.github import get_issue
 from app.integrations.webhooks import WebhookError, process_github_webhook, verify_signature
-from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, TenantKeyCreate, OpportunityCreate, SalesApprovalDecision, LeadInteractionCreate, CustomerIntake, ChangeRequestCreate, OpsCheckCreate, InvoiceCreate
+from app.models import ApprovalDecision, AutonomousCodeRequest, CodeJobRequest, GitHubImport, InstallationRegister, ProjectCreate, RepositoryRegister, TenantBootstrap, TenantKeyCreate, OpportunityCreate, OpportunitySearchConfig, SalesApprovalDecision, LeadInteractionCreate, CustomerIntake, ChangeRequestCreate, OpsCheckCreate, InvoiceCreate
 from app.orchestrator import Orchestrator
 from app.sales_pipeline import SalesPipeline
 from app.customer_ops import CustomerOps
@@ -27,7 +27,8 @@ from app.security.operator_auth import require_operator
 from app.billing import create_invoice, decide_invoice, list_invoices
 from app.company_brain import CompanyBrain
 from app.company_scheduler import CompanyActionQueue
-from app.company_worker import run_once as run_company_once
+from app.company_worker import run_once as run_company_once, search_now
+from app.runtime_config import get_search, set_search
 from app.crm import CRM
 from app.company_profile import current_profile
 from app.outbox import decide as decide_outbox, list_pending as list_pending_outbox
@@ -346,6 +347,20 @@ def company_dashboard(_: bool = Depends(require_operator)):
 @app.post("/company/tick")
 def company_tick(_: bool = Depends(require_operator)):
     return CompanyBrain().tick()
+
+
+@app.get("/control/search")
+def control_search_config(_: bool = Depends(require_operator)):
+    return get_search()
+
+
+@app.post("/control/search/start")
+def control_search_start(body: OpportunitySearchConfig, _: bool = Depends(require_operator)):
+    try:
+        return search_now(body.query, body.limit)
+    except Exception as exc:
+        raise HTTPException(502, f"Job search failed: {str(exc)[:300]}")
+
 
 @app.post("/company/run-once")
 def company_run_once(_: bool = Depends(require_operator)):
