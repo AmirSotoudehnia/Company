@@ -8,7 +8,7 @@ from app.db import db
 AGENTS = [
     "ceo", "opportunity", "sales", "project_manager", "architect", "developer",
     "coding", "qa", "bug_fix", "code_review", "security", "delivery",
-    "customer_communication", "operations",
+    "customer_communication", "research", "operations",
 ]
 
 
@@ -63,6 +63,9 @@ def dashboard_snapshot():
         projects = [dict(r) for r in conn.execute("SELECT id,name,status,created_at FROM projects ORDER BY id DESC LIMIT 20")]
         opportunities = [dict(r) for r in conn.execute("SELECT id,title,source,source_url,score,status,created_at FROM opportunities ORDER BY id DESC LIMIT 50")]
         search_runs = [dict(r) for r in conn.execute("SELECT * FROM search_runs ORDER BY id DESC LIMIT 10")]
+        research_missions = [dict(r) for r in conn.execute("SELECT * FROM research_missions ORDER BY id DESC LIMIT 20")]
+        research_findings = [dict(r) for r in conn.execute(
+            "SELECT f.* FROM research_findings f ORDER BY f.id DESC LIMIT 100")]
         approvals = [dict(r) for r in conn.execute("SELECT id,project_id,kind,status,created_at,'project' AS category FROM approvals WHERE status='pending' ORDER BY id DESC")]
         approvals += [dict(r) for r in conn.execute("SELECT id,opportunity_id AS project_id,kind,status,created_at,'sales' AS category FROM sales_approvals WHERE status='pending' ORDER BY id DESC")]
         approvals += [dict(r) for r in conn.execute("SELECT id,engagement_id AS project_id,kind,status,created_at,'engagement' AS category FROM engagement_approvals WHERE status='pending' ORDER BY id DESC")]
@@ -78,4 +81,6 @@ def dashboard_snapshot():
             item["status"] = "paused"
         agents.append(item)
     return {"generated_at": datetime.now(timezone.utc).isoformat(), "agents": agents, "jobs": jobs,
-            "projects": projects, "opportunities": opportunities, "search_runs": search_runs, "pending_approvals": approvals, "outbox": outbox, "invoices": invoices, "incidents": incidents, "events": events}
+            "projects": projects, "opportunities": opportunities, "search_runs": search_runs,
+            "research_missions": research_missions, "research_findings": research_findings,
+            "pending_approvals": approvals, "outbox": outbox, "invoices": invoices, "incidents": incidents, "events": events}

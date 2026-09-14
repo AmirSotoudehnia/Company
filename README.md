@@ -185,3 +185,12 @@ Set `JOBTECH_ENABLED=true` to use Arbetsförmedlingen's official public JobTech 
 Other supported ingress paths are the existing manual `POST /opportunities` endpoint and authorized GitHub issue/webhook integration. No authenticated page scraping is performed.
 
 `POST /opportunities/{id}/interactions` records Gmail, contact-form, manual, or draft channel events. Outbound records are always forced to `draft`; inbound records become `received`. A future authenticated Gmail adapter may create or synchronize drafts, but it must never bypass owner approval.
+
+
+## General web research
+
+The control panel supports an Auto mode for natural-language public-web research. Job-related prompts route to the official JobTech connector; other prompts use Tavily when TAVILY_API_KEY is configured in the ignored .env.local file.
+
+Research is stored as durable missions and cited findings. A finding becomes a sales opportunity only when the operator selects Create opportunity. Search prompts are sent to the configured provider. Approved CRM opportunities may enqueue research that sends the opportunity title and a bounded excerpt of its brief to Tavily; do not enable that workflow for private data without appropriate authorization.
+
+No research result is treated as verified proof, and no outbound message is sent automatically. Research can prepare a Gmail draft candidate, but the outbox approval remains a separate human gate.

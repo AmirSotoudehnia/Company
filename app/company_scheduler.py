@@ -9,16 +9,18 @@ class CompanyActionQueue:
     """Durable, deduplicated queue for safe company-level actions."""
 
     def schedule(self, action: str, reason: str, payload: dict | None = None):
+        payload_json = json.dumps(payload or {}, sort_keys=True)
         with db() as conn:
             existing = conn.execute(
-                "SELECT * FROM company_actions WHERE action=? AND status IN ('pending','running','waiting_human') ORDER BY id DESC LIMIT 1",
-                (action,),
+                "SELECT * FROM company_actions WHERE action=? AND payload_json=? "
+                "AND status IN ('pending','running','waiting_human') ORDER BY id DESC LIMIT 1",
+                (action, payload_json),
             ).fetchone()
             if existing:
                 return dict(existing)
             cur = conn.execute(
                 "INSERT INTO company_actions(action,reason,payload_json) VALUES(?,?,?)",
-                (action, reason, json.dumps(payload or {})),
+                (action, reason, payload_json),
             )
             return dict(conn.execute("SELECT * FROM company_actions WHERE id=?", (cur.lastrowid,)).fetchone())
 
