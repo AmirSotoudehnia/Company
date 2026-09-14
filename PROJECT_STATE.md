@@ -222,3 +222,11 @@ Token-in-clone-URL when explicit token is used; SQLite is single-node; numeric G
 - Local-business results are verification leads only: a missing OSM website tag is not proof that no website exists.
 - Live Växjö probe returned five candidate records; subsequent public-service load was handled as a visible error.
 - Regression suite: 80 passed, 1 third-party deprecation warning.
+
+
+## 2026-09-14 Search observability
+- Added durable search_runs tracking with running/completed/failed state, counts, timestamps and errors.
+- Control panel now shows search activity and up to 50 recent opportunity results.
+- Each result displays name, source, qualification score, pipeline status and clickable source URL.
+- Search failures remain visible instead of appearing as a no-op.
+- Regression suite: 81 passed, 1 third-party deprecation warning.

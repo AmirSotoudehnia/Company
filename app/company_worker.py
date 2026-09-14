@@ -7,7 +7,7 @@ from pathlib import Path
 
 from app.company_brain import CompanyBrain
 from app.company_scheduler import CompanyActionQueue
-from app.db import init_db
+from app.db import db, init_db
 from app.integrations.jobtech import JobTechConnector
 from app.integrations.local_businesses import LocalBusinessConnector
 from app.opportunity_discovery import DiscoveredOpportunity, OpportunityDiscovery
@@ -50,10 +50,19 @@ def _discover() -> int:
 def search_now(query: str, limit: int = 25, mode: str = "job_ads"):
     from app.runtime_config import set_search
     config = set_search(query, limit, mode)
-    connector = JobTechConnector() if mode == "job_ads" else LocalBusinessConnector()
-    items = connector.search(config["query"], config["limit"])
-    inserted = OpportunityDiscovery().ingest(items)
-    return {**config, "found": len(items), "new": len(inserted)}
+    with db() as conn:
+        run_id = conn.execute("INSERT INTO search_runs(mode,query) VALUES(?,?)", (mode, config["query"])).lastrowid
+    try:
+        connector = JobTechConnector() if mode == "job_ads" else LocalBusinessConnector()
+        items = connector.search(config["query"], config["limit"])
+        inserted = OpportunityDiscovery().ingest(items)
+        with db() as conn:
+            conn.execute("UPDATE search_runs SET status='completed',found=?,new_count=?,finished_at=CURRENT_TIMESTAMP WHERE id=?", (len(items), len(inserted), run_id))
+        return {**config, "run_id": run_id, "status": "completed", "found": len(items), "new": len(inserted)}
+    except Exception as exc:
+        with db() as conn:
+            conn.execute("UPDATE search_runs SET status='failed',error=?,finished_at=CURRENT_TIMESTAMP WHERE id=?", (str(exc)[:500], run_id))
+        raise
 
 
 def run_once():
